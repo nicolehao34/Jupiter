@@ -1,0 +1,72 @@
+{
+  "name": "NMC811 cathode processing (synthetic demonstration)",
+  "composition": "LiNi0.8Mn0.1Co0.1O2 (fixed composition)",
+  "data_origin": "synthetic_demonstration",
+  "disclaimer": "This dataset is generated from an invented response surface so the demo can run without a lab file. It does not represent real battery physics, measured cells, or a claim that the planner reduces lab experiments.",
+  "inputs": [
+    {
+      "name": "calcination_temp_C",
+      "unit": "\u00b0C",
+      "low": 720.0,
+      "high": 940.0,
+      "description": "Hold temperature of the calcination / sintering step"
+    },
+    {
+      "name": "hold_time_h",
+      "unit": "h",
+      "low": 4.0,
+      "high": 16.0,
+      "description": "Isothermal hold duration"
+    },
+    {
+      "name": "heating_rate_C_min",
+      "unit": "\u00b0C/min",
+      "low": 1.0,
+      "high": 8.0,
+      "description": "Ramp rate to the hold temperature"
+    },
+    {
+      "name": "carbon_black_wt_pct",
+      "unit": "wt%",
+      "low": 2.0,
+      "high": 8.0,
+      "description": "Conductive carbon loading in the electrode slurry"
+    }
+  ],
+  "target": {
+    "name": "discharge_capacity_mAh_g",
+    "unit": "mAh/g",
+    "direction": "maximize",
+    "description": "First-cycle discharge specific capacity (demonstration metric)"
+  },
+  "peak_of_invented_surface": {
+    "calcination_temp_C": 850.0,
+    "hold_time_h": 10.0,
+    "heating_rate_C_min": 3.2,
+    "carbon_black_wt_pct": 4.6
+  },
+  "suggested_bounds": {
+    "calcination_temp_C": {
+      "min": 720.0,
+      "max": 940.0,
+      "unit": "\u00b0C"
+    },
+    "hold_time_h": {
+      "min": 4.0,
+      "max": 16.0,
+      "unit": "h"
+    },
+    "heating_rate_C_min": {
+      "min": 1.0,
+      "max": 8.0,
+      "unit": "\u00b0C/min"
+    },
+    "carbon_black_wt_pct": {
+      "min": 2.0,
+      "max": 8.0,
+      "unit": "wt%"
+    }
+  },
+  "suggested_batch_size": 4,
+  "suggested_budget": 12
+}

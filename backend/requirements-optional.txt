@@ -1,0 +1,4 @@
+# Optional scientific extras. Core planner works without these.
+# Verified in this environment: pybamm 26.10.1.1 Chen2020 SPM 1C discharge.
+pybamm>=25.10
+casadi>=3.6.7
