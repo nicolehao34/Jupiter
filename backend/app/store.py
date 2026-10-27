@@ -205,8 +205,9 @@ def generate_recommendations(project_id: str) -> dict[str, Any]:
                 f"strategy {previous.strategy} → {result['strategy']}; "
                 f"excluded open/completed points={result['n_excluded']}."
             )
+        batch_id = new_id()
         payload = {
-            "batch_id": new_id(),
+            "batch_id": batch_id,
             "strategy": result["strategy"],
             "dataset_version": dataset.version,
             "n_observed": int(len(y)),
@@ -221,6 +222,7 @@ def generate_recommendations(project_id: str) -> dict[str, Any]:
             "numerical_change": numerical_change,
             "change_inference": change_meta.model_dump() if change_meta else None,
             "baseline_comparison": result.get("baseline_comparison"),
+            "run_sheet": _run_sheet_from_batch(rows, config, batch_id),
         }
         db.add(
             Batch(
@@ -417,6 +419,8 @@ def review_payload(project_id: str) -> dict[str, Any]:
         "residual_note": residual_note,
         "data_origin": (payload.get("dataset") or {}).get("data_origin"),
         "inference": payload.get("inference"),
+        "audience": _audience_case(),
+        "run_sheet": (batches[0].get("run_sheet") if batches else None),
     }
 
 
@@ -437,10 +441,121 @@ def campaign_facts(project_id: str) -> dict[str, Any]:
         "latest_strategy": (latest or {}).get("strategy") if latest else None,
         "latest_baseline_comparison": (latest or {}).get("baseline_comparison") if latest else None,
         "batch_summaries": review.get("batches"),
+        "audience": review.get("audience"),
+        "run_sheet": review.get("run_sheet"),
         "data_origin": review.get("data_origin"),
         "demo_disclaimer": (
             "If data_origin is synthetic_demonstration, values come from an invented surface, "
             "not measured cells or real battery physics."
+        ),
+    }
+
+
+def run_sheet(project_id: str, batch_id: str | None = None) -> dict[str, Any]:
+    db = session()
+    try:
+        project = _require_project(db, project_id)
+        query = db.query(Batch).filter(Batch.project_id == project_id)
+        batch = query.filter(Batch.id == batch_id).first() if batch_id else query.order_by(Batch.created_at.desc()).first()
+        if batch is None:
+            raise ValueError("Generate a recommendation batch before exporting a run sheet.")
+        config_raw = load(project.config_json)
+        if not config_raw:
+            raise ValueError("Save an optimization config before exporting a run sheet.")
+        config = OptimizationConfig.model_validate(config_raw)
+        payload = load(batch.payload_json, {})
+        sheet = payload.get("run_sheet") or _run_sheet_from_batch(payload.get("rows") or [], config, batch.id)
+        sheet["audience"] = _audience_case()
+        return sheet
+    finally:
+        db.close()
+
+
+def run_sheet_csv(project_id: str, batch_id: str | None = None) -> str:
+    sheet = run_sheet(project_id, batch_id)
+    records = []
+    for run in sheet.get("runs") or []:
+        rec = {
+            "run": run["run"],
+            "rank": run["rank"],
+            "batch_id": sheet.get("batch_id"),
+            "measure": run["measure"],
+            "unit": run["unit"],
+            "predicted_mean": run.get("predicted_mean"),
+            "predicted_std": run.get("predicted_std"),
+            "acquisition_ei": run.get("acquisition"),
+            "tradeoff": run.get("tradeoff"),
+            "record_back": run.get("record_back"),
+            "uncertainty_label": run.get("uncertainty_label"),
+        }
+        rec.update(run.get("setpoints") or {})
+        records.append(rec)
+    if not records:
+        raise ValueError("Run sheet has no rows.")
+    buffer = StringIO()
+    pd.DataFrame.from_records(records).to_csv(buffer, index=False)
+    return buffer.getvalue()
+
+
+def _audience_case() -> dict[str, str]:
+    return {
+        "who": "Battery process and materials researchers iterating on a chemistry they have already chosen.",
+        "job": "Pick the next k furnace or slurry runs from a remaining experiment budget.",
+        "intended_benefit": (
+            "Spend remaining slots where the Gaussian-process expected improvement is high "
+            "relative to a same-size space-filling draw on the current surrogate."
+        ),
+        "not_claimed": (
+            "Jupiter has not been shown to reduce real lab experiments. "
+            "The bundled NMC811 table is a labeled synthetic demonstration surface, not battery physics."
+        ),
+    }
+
+
+def _run_sheet_from_batch(
+    rows: list[dict[str, Any]],
+    config: OptimizationConfig,
+    batch_id: str,
+) -> dict[str, Any]:
+    target = config.target_metric
+    unit = config.units.get(target, "")
+    runs = []
+    for row in rows:
+        setpoints = {}
+        for name, value in (row.get("parameters") or {}).items():
+            setpoints[name] = {
+                "value": value,
+                "unit": config.units.get(name, ""),
+            }
+        runs.append(
+            {
+                "run": len(runs) + 1,
+                "rank": row.get("rank"),
+                "setpoints": {name: spec["value"] for name, spec in setpoints.items()},
+                "setpoint_units": {name: spec["unit"] for name, spec in setpoints.items()},
+                "measure": target,
+                "unit": unit,
+                "predicted_mean": row.get("predicted_mean"),
+                "predicted_std": row.get("predicted_std"),
+                "acquisition": row.get("acquisition"),
+                "tradeoff": row.get("tradeoff"),
+                "uncertainty_label": row.get("uncertainty_label"),
+                "record_back": (
+                    f"After the furnace/slurry run, enter the measured {target} ({unit}) "
+                    f"on the Plan tab for rank {row.get('rank')}."
+                ),
+            }
+        )
+    return {
+        "batch_id": batch_id,
+        "title": "Next furnace / slurry runs",
+        "measure": target,
+        "unit": unit,
+        "direction": config.direction,
+        "runs": runs,
+        "instructions": (
+            "Use these setpoints at the bench. Record the measured target back on the Plan tab. "
+            "Predicted values are Gaussian-process estimates, not lab results."
         ),
     }
 

@@ -149,6 +149,31 @@ async def upload_results(project_id: str, file: UploadFile = File(...)) -> dict[
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.get("/api/projects/{project_id}/run-sheet")
+def get_run_sheet(project_id: str, batch_id: str | None = None) -> dict[str, Any]:
+    try:
+        return store.run_sheet(project_id, batch_id=batch_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/projects/{project_id}/run-sheet.csv")
+def get_run_sheet_csv(project_id: str, batch_id: str | None = None) -> Response:
+    try:
+        csv_text = store.run_sheet_csv(project_id, batch_id=batch_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="jupiter-lab-run-sheet.csv"'},
+    )
+
+
 @app.get("/api/projects/{project_id}/review")
 def review(project_id: str) -> dict[str, Any]:
     try:

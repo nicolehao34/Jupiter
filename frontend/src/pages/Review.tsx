@@ -26,6 +26,22 @@ export function Review() {
 
   return (
     <div className="review">
+      {review.audience && (
+        <section className="card impact">
+          <h2>Who this is for</h2>
+          <p>
+            <strong>Audience.</strong> {review.audience.who}
+          </p>
+          <p>
+            <strong>Job.</strong> {review.audience.job}
+          </p>
+          <p>
+            <strong>Intended benefit.</strong> {review.audience.intended_benefit}
+          </p>
+          <p className="hint">{review.audience.not_claimed}</p>
+        </section>
+      )}
+
       <section className="card">
         <h2>Campaign review</h2>
         <p className="hint">
@@ -102,6 +118,30 @@ export function Review() {
           </p>
         </section>
       </div>
+
+      {review.run_sheet && (
+        <section className="card" style={{ marginTop: 14 }}>
+          <h2>{review.run_sheet.title}</h2>
+          <p className="hint">{review.run_sheet.instructions}</p>
+          <ol className="run-sheet">
+            {review.run_sheet.runs.map((run) => (
+              <li key={run.run}>
+                <span className="mono">
+                  {Object.entries(run.setpoints)
+                    .map(
+                      ([name, value]) =>
+                        `${name}=${formatNum(value, 3)} ${run.setpoint_units[name] || ""}`.trim(),
+                    )
+                    .join(" · ")}
+                </span>
+                <p className="meta">
+                  Measure {run.measure} ({run.unit}). {run.record_back}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       <section className="card" style={{ marginTop: 14 }}>
         <h2>Batch timeline</h2>

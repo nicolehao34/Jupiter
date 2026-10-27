@@ -89,6 +89,37 @@ export interface BaselineComparison {
   note: string;
 }
 
+export interface AudienceCase {
+  who: string;
+  job: string;
+  intended_benefit: string;
+  not_claimed: string;
+}
+
+export interface RunSheet {
+  batch_id: string;
+  title: string;
+  measure: string;
+  unit: string;
+  direction: string;
+  instructions: string;
+  audience?: AudienceCase;
+  runs: {
+    run: number;
+    rank: number;
+    setpoints: Record<string, number>;
+    setpoint_units: Record<string, string>;
+    measure: string;
+    unit: string;
+    predicted_mean: number | null;
+    predicted_std: number | null;
+    acquisition: number | null;
+    tradeoff: string;
+    uncertainty_label?: string;
+    record_back: string;
+  }[];
+}
+
 export interface RecommendResponse {
   batch_id: string;
   strategy: "expected_improvement" | "initial_design";
@@ -104,6 +135,7 @@ export interface RecommendResponse {
   numerical_change?: string | null;
   validation_summary?: string | null;
   baseline_comparison?: BaselineComparison | null;
+  run_sheet?: RunSheet | null;
 }
 
 export interface Observation {
@@ -166,6 +198,8 @@ export interface CampaignReview {
   residual_note: string;
   data_origin?: string | null;
   inference: InferenceStatus;
+  audience?: AudienceCase;
+  run_sheet?: RunSheet | null;
 }
 
 export interface AskReply {

@@ -79,6 +79,18 @@ export function Planner() {
     URL.revokeObjectURL(url);
   }
 
+  async function exportRunSheet() {
+    if (!project) return;
+    const blob = await wrap("Exporting lab run sheet…", () => api.exportRunSheet(project.id));
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "jupiter-lab-run-sheet.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function addManualResult() {
     if (!project || !latest) return;
     const row = latest.rows.find((r) => r.rank === Number(resultDraft.rank)) || latest.rows[0];
@@ -360,7 +372,31 @@ export function Planner() {
                 <button className="secondary" onClick={() => void exportPlan()}>
                   7 · Export plan CSV
                 </button>
+                <button className="secondary" onClick={() => void exportRunSheet()}>
+                  Download lab run sheet
+                </button>
               </div>
+              {latest.run_sheet && (
+                <div className="run-sheet">
+                  <h3>{latest.run_sheet.title}</h3>
+                  <p className="hint">{latest.run_sheet.instructions}</p>
+                  <ol>
+                    {latest.run_sheet.runs.map((run) => (
+                      <li key={run.run}>
+                        <span className="mono">
+                          {Object.entries(run.setpoints)
+                            .map(
+                              ([name, value]) =>
+                                `${name}=${formatNum(value, 3)} ${run.setpoint_units[name] || ""}`.trim(),
+                            )
+                            .join(" · ")}
+                        </span>
+                        <p className="meta">{run.record_back}</p>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
             </>
           ) : (
             <p className="hint">Generate a batch to see predicted performance and uncertainty.</p>
