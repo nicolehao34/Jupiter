@@ -220,6 +220,7 @@ def generate_recommendations(project_id: str) -> dict[str, Any]:
             "change_summary": change_summary,
             "numerical_change": numerical_change,
             "change_inference": change_meta.model_dump() if change_meta else None,
+            "baseline_comparison": result.get("baseline_comparison"),
         }
         db.add(
             Batch(
@@ -361,6 +362,7 @@ def review_payload(project_id: str) -> dict[str, Any]:
                 "mean_prediction": round(float(sum(means) / len(means)), 4) if means else None,
                 "mean_std": round(float(sum(stds) / len(stds)), 4) if stds else None,
                 "tradeoffs": [r.get("tradeoff") for r in rows],
+                "baseline_comparison": batch.get("baseline_comparison"),
             }
         )
     parity: list[dict[str, Any]] = []
@@ -433,6 +435,7 @@ def campaign_facts(project_id: str) -> dict[str, Any]:
         "rmse_in_sample": review.get("rmse"),
         "residual_note": review.get("residual_note"),
         "latest_strategy": (latest or {}).get("strategy") if latest else None,
+        "latest_baseline_comparison": (latest or {}).get("baseline_comparison") if latest else None,
         "batch_summaries": review.get("batches"),
         "data_origin": review.get("data_origin"),
         "demo_disclaimer": (

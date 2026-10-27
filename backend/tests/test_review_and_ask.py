@@ -21,10 +21,18 @@ def test_review_after_sample_and_batch():
     assert review["rmse"] is not None
     assert "in-sample" in review["residual_note"].lower() or "same rows" in review["residual_note"].lower()
 
-    assert client.post(f"/api/projects/{pid}/recommend").status_code == 200
+    rec = client.post(f"/api/projects/{pid}/recommend")
+    assert rec.status_code == 200
+    cmp_ = rec.json()["baseline_comparison"]
+    assert cmp_["applicable"] is True
+    assert cmp_["proposed_sum_ei"] >= cmp_["baseline_sum_ei"]
+
     after = client.get(f"/api/projects/{pid}/review").json()
     assert after["n_batches"] >= 1
     assert after["batches"][0]["strategy"] == "expected_improvement"
+    review_cmp = after["batches"][0]["baseline_comparison"]
+    assert review_cmp["applicable"] is True
+    assert review_cmp["ei_lift"] == cmp_["ei_lift"]
 
 
 def test_ask_unconfigured_does_not_look_live():
