@@ -7,7 +7,7 @@ import pandas as pd
 
 from . import nebius
 from .db import Batch, Dataset, Observation, Project, dump, load, new_id, sample_csv_path, session
-from .optimizer import recommend as run_recommend
+from .optimizer import predict_observed, recommend as run_recommend
 from .schemas import OptimizationConfig
 from .synthetic import sample_metadata
 from .validation import json_rows, modeling_matrix, preview_frame, read_csv_text, round_key
@@ -328,6 +328,118 @@ def export_batch_csv(project_id: str, batch_id: str | None = None) -> str:
         return buffer.getvalue()
     finally:
         db.close()
+
+
+def review_payload(project_id: str) -> dict[str, Any]:
+    payload = project_payload(project_id)
+    config_raw = payload.get("config")
+    observations = payload.get("observations") or []
+    batches = payload.get("batches") or []
+    target = (config_raw or {}).get("target_metric")
+    direction = (config_raw or {}).get("direction") or "maximize"
+    unit = ((config_raw or {}).get("units") or {}).get(target or "", "")
+    best = None
+    worst = None
+    if observations:
+        ranked = sorted(observations, key=lambda row: row["observed"], reverse=(direction == "maximize"))
+        best = ranked[0]
+        worst = ranked[-1]
+    budget_total = int((config_raw or {}).get("experiment_budget") or 0)
+    used = len(observations)
+    batch_summaries = []
+    for batch in batches:
+        rows = batch.get("rows") or []
+        means = [r.get("predicted_mean") for r in rows if r.get("predicted_mean") is not None]
+        stds = [r.get("predicted_std") for r in rows if r.get("predicted_std") is not None]
+        batch_summaries.append(
+            {
+                "id": batch.get("id") or batch.get("batch_id"),
+                "strategy": batch.get("strategy"),
+                "created_at": batch.get("created_at"),
+                "n_rows": len(rows),
+                "n_observed_at_fit": batch.get("n_observed"),
+                "mean_prediction": round(float(sum(means) / len(means)), 4) if means else None,
+                "mean_std": round(float(sum(stds) / len(stds)), 4) if stds else None,
+                "tradeoffs": [r.get("tradeoff") for r in rows],
+            }
+        )
+    parity: list[dict[str, Any]] = []
+    residual_note = (
+        "Parity requires a saved config and at least 6 complete numeric rows so a Gaussian process can be fit."
+    )
+    rmse = None
+    if config_raw and payload.get("dataset"):
+        cfg = OptimizationConfig.model_validate(config_raw)
+        db = session()
+        try:
+            dataset = db.get(Dataset, payload["dataset"]["dataset_id"]) if payload.get("dataset") else None
+            if dataset is not None:
+                frame = _frame_with_results(db, project_id, dataset)
+                x, y, params = modeling_matrix(frame, cfg)
+                fitted = predict_observed(x, y, cfg)
+                if fitted:
+                    residual_note = fitted["note"]
+                    rmse = fitted["rmse"]
+                    for i, rec in enumerate(params):
+                        parity.append(
+                            {
+                                "parameters": rec,
+                                "observed": round(float(y[i]), 4),
+                                "predicted_mean": fitted["predicted_mean"][i],
+                                "predicted_std": fitted["predicted_std"][i],
+                                "residual": fitted["residual"][i],
+                            }
+                        )
+        except ValueError:
+            residual_note = "Could not build a modeling matrix for the parity plot."
+        finally:
+            db.close()
+    return {
+        "project_id": payload["id"],
+        "name": payload["name"],
+        "target": target,
+        "direction": direction,
+        "unit": unit,
+        "n_observed": used,
+        "n_batches": len(batches),
+        "best_observed": best,
+        "worst_observed": worst,
+        "budget": {
+            "used": used,
+            "total": budget_total,
+            "remaining": max(budget_total - used, 0),
+        },
+        "batches": batch_summaries,
+        "parity": parity,
+        "rmse": rmse,
+        "residual_note": residual_note,
+        "data_origin": (payload.get("dataset") or {}).get("data_origin"),
+        "inference": payload.get("inference"),
+    }
+
+
+def campaign_facts(project_id: str) -> dict[str, Any]:
+    review = review_payload(project_id)
+    latest = (review.get("batches") or [None])[0]
+    return {
+        "target": review.get("target"),
+        "direction": review.get("direction"),
+        "unit": review.get("unit"),
+        "n_observed": review.get("n_observed"),
+        "n_batches": review.get("n_batches"),
+        "best_observed": review.get("best_observed"),
+        "worst_observed": review.get("worst_observed"),
+        "budget": review.get("budget"),
+        "rmse_in_sample": review.get("rmse"),
+        "residual_note": review.get("residual_note"),
+        "latest_strategy": (latest or {}).get("strategy") if latest else None,
+        "batch_summaries": review.get("batches"),
+        "data_origin": review.get("data_origin"),
+        "demo_disclaimer": (
+            "If data_origin is synthetic_demonstration, values come from an invented surface, "
+            "not measured cells or real battery physics."
+        ),
+    }
 
 
 def plot_data(project_id: str) -> dict[str, Any]:

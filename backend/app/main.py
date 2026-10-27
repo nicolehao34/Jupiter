@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from .config import get_settings
 from . import nebius, optional_science, store
-from .schemas import GoalRequest, OptimizationConfig, ResultRow, SimulationRequest
+from .schemas import AskRequest, GoalRequest, OptimizationConfig, ResultRow, SimulationRequest
 from .synthetic import sample_metadata
 
 settings = get_settings()
@@ -147,6 +147,23 @@ async def upload_results(project_id: str, file: UploadFile = File(...)) -> dict[
         return store.add_results_csv(project_id, raw.decode("utf-8"))
     except (UnicodeDecodeError, ValueError, KeyError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/projects/{project_id}/review")
+def review(project_id: str) -> dict[str, Any]:
+    try:
+        return store.review_payload(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/projects/{project_id}/ask")
+def ask(project_id: str, body: AskRequest) -> dict[str, Any]:
+    try:
+        facts = store.campaign_facts(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return nebius.ask_campaign(body.question, facts, project_id=project_id)
 
 
 @app.get("/api/projects/{project_id}/plot")

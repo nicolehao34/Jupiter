@@ -23,6 +23,54 @@ UNCERTAINTY_LABEL = (
 )
 
 
+def predict_observed(
+    x_obs: np.ndarray,
+    y_obs: np.ndarray,
+    config: OptimizationConfig,
+    *,
+    seed: int = 42,
+) -> dict[str, Any] | None:
+    """In-sample GP predictions for a parity plot. Training residuals, not held-out error."""
+    if len(y_obs) < MIN_POINTS_FOR_GP:
+        return None
+    y_fit = y_obs.copy()
+    if config.direction == "minimize":
+        y_fit = -y_fit
+    x_scaler = StandardScaler()
+    y_scaler = StandardScaler()
+    x_s = x_scaler.fit_transform(x_obs)
+    y_s = y_scaler.fit_transform(y_fit.reshape(-1, 1)).ravel()
+    kernel = (
+        ConstantKernel(1.0, constant_value_bounds=(1e-3, 1e3))
+        * Matern(length_scale=np.ones(x_obs.shape[1]), nu=2.5, length_scale_bounds=(0.05, 20.0))
+        + WhiteKernel(noise_level=0.08, noise_level_bounds=(1e-5, 1.0))
+    )
+    gpr = GaussianProcessRegressor(
+        kernel=kernel,
+        normalize_y=False,
+        n_restarts_optimizer=1,
+        random_state=seed,
+        alpha=1e-8,
+    )
+    gpr.fit(x_s, y_s)
+    mu_s, std_s = gpr.predict(x_s, return_std=True)
+    mu_fit = y_scaler.inverse_transform(mu_s.reshape(-1, 1)).ravel()
+    std_fit = std_s * float(y_scaler.scale_[0])
+    mu_orig = -mu_fit if config.direction == "minimize" else mu_fit
+    residual = y_obs - mu_orig
+    rmse = float(np.sqrt(np.mean(residual**2)))
+    return {
+        "predicted_mean": [round(float(v), 4) for v in mu_orig],
+        "predicted_std": [round(float(v), 4) for v in std_fit],
+        "residual": [round(float(v), 4) for v in residual],
+        "rmse": round(rmse, 4),
+        "note": (
+            "These are in-sample Gaussian-process residuals on the same rows used to fit the "
+            "surrogate — not a held-out or experimentally verified error."
+        ),
+    }
+
+
 def recommend(
     x_obs: np.ndarray,
     y_obs: np.ndarray,
