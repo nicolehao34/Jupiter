@@ -33,6 +33,17 @@ def test_review_after_sample_and_batch():
     review_cmp = after["batches"][0]["baseline_comparison"]
     assert review_cmp["applicable"] is True
     assert review_cmp["ei_lift"] == cmp_["ei_lift"]
+    assert after["audience"]["who"]
+    assert "not been shown" in after["audience"]["not_claimed"].lower()
+    assert rec.json()["run_sheet"]["runs"]
+    assert rec.json()["run_sheet"]["runs"][0]["record_back"]
+    sheet = client.get(f"/api/projects/{pid}/run-sheet")
+    assert sheet.status_code == 200
+    assert sheet.json()["runs"][0]["measure"] == "discharge_capacity_mAh_g"
+    csv = client.get(f"/api/projects/{pid}/run-sheet.csv")
+    assert csv.status_code == 200
+    assert "record_back" in csv.text
+    assert csv.text.count("\n") >= 2
 
 
 def test_ask_unconfigured_does_not_look_live():

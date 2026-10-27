@@ -66,6 +66,11 @@ export const api = {
     if (!response.ok) throw new Error("Export failed");
     return response.blob();
   },
+  exportRunSheet: async (id: string) => {
+    const response = await fetch(`/api/projects/${id}/run-sheet.csv`);
+    if (!response.ok) throw new Error("Run sheet export failed");
+    return response.blob();
+  },
   addResults: (id: string, rows: { parameters: Record<string, number>; observed: number; experiment_id?: string }[]) =>
     request<ProjectState>(`/api/projects/${id}/results`, {
       method: "POST",
