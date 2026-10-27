@@ -67,7 +67,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. The UI proxies `/api` to port 8000.
+Open http://localhost:5173 (`#/plan`). The complementary **Review** tab (`#/review`) and the **Copilot** sidebar share the same campaign: Review shows budget, best/worst, batch timeline, and an in-sample parity plot; Copilot asks Nemotron questions grounded only in stored facts. The UI proxies `/api` to port 8000.
 
 ### Live Nemotron
 
