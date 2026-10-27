@@ -1,4 +1,6 @@
 import type {
+  AskReply,
+  CampaignReview,
   OptimizationConfig,
   PlotData,
   ProjectState,
@@ -76,6 +78,13 @@ export const api = {
     return request<ProjectState>(`/api/projects/${id}/results/upload`, { method: "POST", body: data });
   },
   plot: (id: string) => request<PlotData>(`/api/projects/${id}/plot`),
+  review: (id: string) => request<CampaignReview>(`/api/projects/${id}/review`),
+  ask: (id: string, question: string) =>
+    request<AskReply>(`/api/projects/${id}/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    }),
   simulate: (c_rate: number, temperature_C: number) =>
     request<Record<string, unknown>>("/api/simulate/pybamm", {
       method: "POST",

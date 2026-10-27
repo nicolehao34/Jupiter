@@ -120,6 +120,46 @@ export interface ProjectState {
   inference: InferenceStatus;
 }
 
+export interface CampaignReview {
+  project_id: string;
+  name: string;
+  target: string | null;
+  direction: "maximize" | "minimize";
+  unit: string;
+  n_observed: number;
+  n_batches: number;
+  best_observed: Observation | null;
+  worst_observed: Observation | null;
+  budget: { used: number; total: number; remaining: number };
+  batches: {
+    id: string;
+    strategy: string;
+    created_at?: string;
+    n_rows: number;
+    n_observed_at_fit?: number;
+    mean_prediction: number | null;
+    mean_std: number | null;
+    tradeoffs: string[];
+  }[];
+  parity: {
+    parameters: Record<string, number>;
+    observed: number;
+    predicted_mean: number;
+    predicted_std: number;
+    residual: number;
+  }[];
+  rmse: number | null;
+  residual_note: string;
+  data_origin?: string | null;
+  inference: InferenceStatus;
+}
+
+export interface AskReply {
+  answer: string;
+  bullets: string[];
+  inference: InferenceMeta;
+}
+
 export interface PlotData {
   target: string | null;
   points: {

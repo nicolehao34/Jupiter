@@ -13,7 +13,7 @@ Goal: show the **full feedback loop** and **live Nebius / NVIDIA Nemotron** usag
 | 1:25–1:55 | “Each row has a surrogate prediction, posterior uncertainty — that’s a **model estimate**, not a lab CI — expected improvement, and explore vs exploit. Nemotron’s sentence restates those numbers; it didn’t invent them.” | Scroll the table. Point at the uncertainty caption and the inference status (live, ms, tokens). |
 | 1:55–2:15 | “Export the plan for the furnace list.” | Click **Export plan CSV**. |
 | 2:15–2:45 | “A run comes back. I type the measured capacity on rank 1, save, and regenerate. Jupiter excludes finished and still-open proposals and tells us how the batch moved.” | Enter a number, **Save result**, **Regenerate**. Read the change summary. |
-| 2:45–3:00 | “Optional PyBaMM is a Chen2020 cell discharge, not a processing model. Jupiter’s promise is a transparent next-batch planner, not a claim we’ve already cut lab time.” | Flash the PyBaMM details panel closed. End on the new table. |
+| 2:45–3:00 | “Review is the complementary UI: same campaign, budget and in-sample parity, no new proposals. The copilot may only restate those facts.” | Switch to **Review**, point at RMSE / budget, ask the copilot “What is the best observed capacity so far?” End on the live/unconfigured badge. |
 
 **If live inference fails while recording.** Stop; do not present offline templates as success. Fix the key, restart, record again.
 
