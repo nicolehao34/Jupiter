@@ -13,7 +13,7 @@ Goal: show the **full feedback loop** and **live Nebius / NVIDIA Nemotron** usag
 | 1:25–1:55 | “Each row has a surrogate prediction, posterior uncertainty — that’s a **model estimate**, not a lab CI — expected improvement, and explore vs exploit. The lift vs a space-filling draw is on this surrogate only. Nemotron restates numbers; it didn’t invent them.” | Scroll the table. Point at Σ EI vs baseline, uncertainty caption, live inference. |
 | 1:55–2:15 | “Export the furnace run sheet: setpoints, what to measure, and where to type the result back.” | Click **Download lab run sheet**. |
 | 2:15–2:45 | “A run comes back. I type the measured capacity on rank 1, save, and regenerate. Jupiter excludes finished and still-open proposals and tells us how the batch moved.” | Enter a number, **Save result**, **Regenerate**. Read the change summary. |
-| 2:45–3:00 | “Review is the complementary UI: same campaign, budget and in-sample parity, no new proposals. The copilot may only restate those facts.” | Switch to **Review**, point at RMSE / budget, ask the copilot “What is the best observed capacity so far?” End on the live/unconfigured badge. |
+| 2:45–3:00 | “Review is the complementary UI: same campaign, budget, run sheet, and a Nemotron PI brief that only restates stored facts.” | Switch to **Review**, point at the PI brief inference line, ask the copilot about EI lift. End on the live badge. |
 
 **If live inference fails while recording.** Stop; do not present offline templates as success. Fix the key, restart, record again.
 

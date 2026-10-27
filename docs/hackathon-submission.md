@@ -35,6 +35,7 @@ A research workspace (React + FastAPI) for **closed-loop processing optimization
 | Summarize deterministic validation issues | same | same |
 | Explain ranked rows (explore vs exploit) using supplied μ, σ, EI | same | same |
 | Summarize how the batch changed after new results | same | same |
+| Write a PI brief from stored best / budget / EI lift / run sheet | same | same |
 
 Server-side only. No key in the browser. Catalog IDs verified 27 Oct 2026 from [Token Factory model catalog](https://tokenfactory.nebius.com/model-catalog.md) and [quickstart](https://docs.tokenfactory.nebius.com/quickstart). Switch to Super/Ultra via `NEBIUS_MODEL` if you want heavier reasoning.
 

@@ -13,7 +13,8 @@ interface Turn {
 const STARTERS = [
   "What is the best observed capacity so far, and from which source?",
   "How much of the experiment budget is left?",
-  "Summarize the latest recommendation batch without inventing numbers.",
+  "What is the surrogate EI lift versus the space-filling baseline?",
+  "What setpoints are on the latest lab run sheet?",
 ];
 
 export function Copilot() {

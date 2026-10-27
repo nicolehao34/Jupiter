@@ -208,6 +208,12 @@ export interface AskReply {
   inference: InferenceMeta;
 }
 
+export interface CampaignBrief {
+  headline: string;
+  bullets: string[];
+  inference: InferenceMeta;
+}
+
 export interface PlotData {
   target: string | null;
   points: {

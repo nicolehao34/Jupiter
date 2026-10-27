@@ -100,3 +100,25 @@ def test_unconfigured_mode(monkeypatch):
 
 def test_text_payload_schema():
     TextPayload.model_validate({"summary": "ok", "bullets": ["a"]})
+
+
+def test_offline_campaign_brief_is_labeled(monkeypatch):
+    monkeypatch.setenv("NEBIUS_OFFLINE_DEMO", "true")
+    monkeypatch.setenv("NEBIUS_API_KEY", "")
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    brief = nebius.campaign_brief(
+        {
+            "n_observed": 24,
+            "budget": {"remaining": 16, "total": 40},
+            "latest_strategy": "expected_improvement",
+            "latest_baseline_comparison": {"applicable": True, "ei_lift": 0.12},
+            "run_sheet": {"runs": [{}, {}]},
+            "demo_disclaimer": "synthetic demonstration",
+        }
+    )
+    assert brief["inference"].mode == "offline_demo"
+    assert "OFFLINE DEMO" in brief["headline"]
+    assert any("0.12" in b for b in brief["bullets"])
+    get_settings.cache_clear()

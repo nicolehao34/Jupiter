@@ -171,6 +171,33 @@ def ask_campaign(question: str, facts: dict[str, Any], project_id: str | None = 
     return {"answer": parsed.summary, "bullets": parsed.bullets, "inference": meta}
 
 
+def campaign_brief(facts: dict[str, Any], project_id: str | None = None) -> dict[str, Any]:
+    user = {
+        "task": (
+            "Write a four-bullet PI update for this campaign using ONLY campaign_facts. "
+            "Restate best observed, remaining budget, latest strategy, and surrogate EI lift "
+            "if latest_baseline_comparison.applicable is true. "
+            "If a number is missing, say it is unavailable. "
+            "Do not invent mechanisms, citations, lab savings, or predictions. "
+            "If data_origin is synthetic_demonstration, say the table is synthetic."
+        ),
+        "campaign_facts": facts,
+        "schema": {
+            "summary": "one-sentence headline restating stored facts",
+            "bullets": ["best so far", "budget remaining", "latest batch / EI lift", "next bench action from run_sheet"],
+        },
+    }
+    raw, meta = complete("campaign_brief", user, project_id=project_id)
+    parsed = _parse_model(raw, meta)
+    if parsed is None:
+        return {
+            "headline": meta.error or "No brief available.",
+            "bullets": [],
+            "inference": meta,
+        }
+    return {"headline": parsed.summary, "bullets": parsed.bullets, "inference": meta}
+
+
 def summarize_change(payload: dict[str, Any], project_id: str | None = None) -> tuple[str, InferenceMeta]:
     user = {
         "task": (
@@ -304,6 +331,28 @@ def _offline_text(purpose: str, user_payload: dict[str, Any]) -> str:
                 "bullets": [i.get("message", "") for i in issues[:6]],
             }
         )
+    if purpose == "campaign_brief":
+        facts = user_payload.get("campaign_facts") or {}
+        budget = facts.get("budget") or {}
+        baseline = facts.get("latest_baseline_comparison") or {}
+        lift = baseline.get("ei_lift") if baseline.get("applicable") else "unavailable"
+        sheet = facts.get("run_sheet") or {}
+        n_runs = len(sheet.get("runs") or [])
+        return json.dumps(
+            {
+                "summary": (
+                    "OFFLINE DEMO: PI brief from stored facts only "
+                    f"(n_observed={facts.get('n_observed')}, remaining={budget.get('remaining')}, "
+                    f"EI lift={lift}). Not a live Nemotron call."
+                ),
+                "bullets": [
+                    f"Best observed in facts: {facts.get('best_observed')}",
+                    f"Budget remaining: {budget.get('remaining')} of {budget.get('total')}",
+                    f"Latest strategy: {facts.get('latest_strategy')}; surrogate EI lift: {lift}",
+                    f"Next bench runs on the sheet: {n_runs}. {facts.get('demo_disclaimer')}",
+                ],
+            }
+        )
     if purpose == "campaign_ask":
         facts = user_payload.get("campaign_facts") or {}
         question = user_payload.get("question", "")
@@ -317,6 +366,7 @@ def _offline_text(purpose: str, user_payload: dict[str, Any]) -> str:
                 "bullets": [
                     f"Best observed in facts: {facts.get('best_observed')}",
                     f"Latest strategy: {facts.get('latest_strategy')}",
+                    f"Surrogate EI lift: {(facts.get('latest_baseline_comparison') or {}).get('ei_lift')}",
                 ],
             }
         )
