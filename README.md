@@ -6,6 +6,16 @@ Jupiter helps a researcher **improve an existing battery material** by ranking t
 
 This repository ships a **seeded synthetic NMC811 cathode-processing table** so the demo runs without a lab file. That table is an invented response surface. It is **not** real battery physics, and the app does **not** claim to have reduced real lab experiments. The intended benefit is fewer wasted runs once you put real measurements in.
 
+## UI walkthrough
+
+Plan → generate a ranked batch → **Review** (budget, in-sample parity, batch timeline) → **Copilot** (same campaign, facts only). About 45 seconds. In this recording Nemotron is **unconfigured** (no Token Factory key); the badge says so and does not pretend the reply is live.
+
+[![Plan, Review, and Copilot](docs/media/plan-review-copilot-demo.jpg)](docs/media/plan-review-copilot-demo.mp4)
+
+<video src="docs/media/plan-review-copilot-demo.mp4" poster="docs/media/plan-review-copilot-demo.jpg" controls muted playsinline width="100%"></video>
+
+Download: [`docs/media/plan-review-copilot-demo.mp4`](docs/media/plan-review-copilot-demo.mp4)
+
 ## Demo scenario
 
 Fixed composition **LiNi₀.₈Mn₀.₁Co₀.₁O₂**. Tune:
