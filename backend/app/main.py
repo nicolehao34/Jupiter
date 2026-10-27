@@ -182,6 +182,15 @@ def review(project_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@app.get("/api/projects/{project_id}/brief")
+def brief(project_id: str) -> dict[str, Any]:
+    try:
+        facts = store.campaign_facts(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return nebius.campaign_brief(facts, project_id=project_id)
+
+
 @app.post("/api/projects/{project_id}/ask")
 def ask(project_id: str, body: AskRequest) -> dict[str, Any]:
     try:

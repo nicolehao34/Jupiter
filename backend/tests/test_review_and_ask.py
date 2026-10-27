@@ -46,6 +46,15 @@ def test_review_after_sample_and_batch():
     assert csv.text.count("\n") >= 2
 
 
+def test_brief_unconfigured_does_not_look_live():
+    pid = client.post("/api/projects").json()["id"]
+    client.post(f"/api/projects/{pid}/dataset/sample")
+    client.post(f"/api/projects/{pid}/recommend")
+    body = client.get(f"/api/projects/{pid}/brief").json()
+    assert body["inference"]["mode"] in {"unconfigured", "offline_demo", "failed"}
+    assert body["inference"]["mode"] != "live"
+
+
 def test_ask_unconfigured_does_not_look_live():
     pid = client.post("/api/projects").json()["id"]
     client.post(f"/api/projects/{pid}/dataset/sample")

@@ -1,5 +1,6 @@
 import type {
   AskReply,
+  CampaignBrief,
   CampaignReview,
   OptimizationConfig,
   PlotData,
@@ -84,6 +85,7 @@ export const api = {
   },
   plot: (id: string) => request<PlotData>(`/api/projects/${id}/plot`),
   review: (id: string) => request<CampaignReview>(`/api/projects/${id}/review`),
+  brief: (id: string) => request<CampaignBrief>(`/api/projects/${id}/brief`),
   ask: (id: string, question: string) =>
     request<AskReply>(`/api/projects/${id}/ask`, {
       method: "POST",

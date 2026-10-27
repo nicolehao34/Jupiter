@@ -2,18 +2,24 @@ import { useEffect, useState } from "react";
 import { BaselineCompare, BudgetBar, ParityChart } from "../components/Charts";
 import { api } from "../api";
 import { useProject } from "../context";
-import type { CampaignReview } from "../types";
+import type { CampaignBrief, CampaignReview } from "../types";
 import { formatNum } from "../util";
 
 export function Review() {
   const { project, wrap } = useProject();
   const [review, setReview] = useState<CampaignReview | null>(null);
+  const [brief, setBrief] = useState<CampaignBrief | null>(null);
 
   useEffect(() => {
     if (!project) return;
     void wrap("Loading campaign review…", async () => {
       const next = await api.review(project.id);
       setReview(next);
+      try {
+        setBrief(await api.brief(project.id));
+      } catch {
+        setBrief(null);
+      }
       return next;
     });
   }, [project, wrap]);
@@ -39,6 +45,29 @@ export function Review() {
             <strong>Intended benefit.</strong> {review.audience.intended_benefit}
           </p>
           <p className="hint">{review.audience.not_claimed}</p>
+        </section>
+      )}
+
+      {brief && (
+        <section className="card">
+          <h2>PI brief (Nemotron)</h2>
+          <p className="hint">
+            Grounded Token Factory call: restates stored best/budget/EI lift and the next run sheet.
+            It does not invent predictions or lab savings.
+          </p>
+          <p>{brief.headline}</p>
+          <ul className="run-sheet">
+            {brief.bullets.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p className={`meta infer ${brief.inference.mode}`}>
+            {brief.inference.mode}
+            {brief.inference.model ? ` · ${brief.inference.model}` : ""}
+            {brief.inference.latency_ms != null ? ` · ${brief.inference.latency_ms} ms` : ""}
+            {brief.inference.error ? ` · ${brief.inference.error}` : ""}
+            {brief.inference.note ? ` · ${brief.inference.note}` : ""}
+          </p>
         </section>
       )}
 
