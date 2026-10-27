@@ -149,6 +149,28 @@ def explain_batch(payload: dict[str, Any], project_id: str | None = None) -> tup
     return bullets, meta
 
 
+def ask_campaign(question: str, facts: dict[str, Any], project_id: str | None = None) -> dict[str, Any]:
+    user = {
+        "task": (
+            "Answer the researcher's question using ONLY campaign_facts. "
+            "If a number or claim is not in campaign_facts, say it is unavailable. "
+            "Do not invent mechanisms, citations, or predictions."
+        ),
+        "question": question,
+        "campaign_facts": facts,
+        "schema": {"summary": "short answer", "bullets": ["supporting fact from the payload", "..."]},
+    }
+    raw, meta = complete("campaign_ask", user, project_id=project_id)
+    parsed = _parse_model(raw, meta)
+    if parsed is None:
+        return {
+            "answer": meta.error or "No explanation available.",
+            "bullets": [],
+            "inference": meta,
+        }
+    return {"answer": parsed.summary, "bullets": parsed.bullets, "inference": meta}
+
+
 def summarize_change(payload: dict[str, Any], project_id: str | None = None) -> tuple[str, InferenceMeta]:
     user = {
         "task": (
@@ -280,6 +302,22 @@ def _offline_text(purpose: str, user_payload: dict[str, Any]) -> str:
                     f"({', '.join(str(c) for c in codes) or 'none'}). Not a live Nemotron call."
                 ),
                 "bullets": [i.get("message", "") for i in issues[:6]],
+            }
+        )
+    if purpose == "campaign_ask":
+        facts = user_payload.get("campaign_facts") or {}
+        question = user_payload.get("question", "")
+        return json.dumps(
+            {
+                "summary": (
+                    "OFFLINE DEMO: answering from stored campaign facts only "
+                    f"(n_observed={facts.get('n_observed')}, batches={facts.get('n_batches')}). "
+                    f"Question was: {question[:160]}. Not a live Nemotron call."
+                ),
+                "bullets": [
+                    f"Best observed in facts: {facts.get('best_observed')}",
+                    f"Latest strategy: {facts.get('latest_strategy')}",
+                ],
             }
         )
     if purpose == "batch_explanations":
