@@ -1,0 +1,17 @@
+services:
+  jupiter:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      JUPITER_DATABASE_URL: sqlite:////app/backend/data/jupiter.sqlite
+      NEBIUS_API_KEY: ${NEBIUS_API_KEY:-}
+      NEBIUS_BASE_URL: ${NEBIUS_BASE_URL:-https://api.tokenfactory.nebius.com/v1}
+      NEBIUS_MODEL: ${NEBIUS_MODEL:-nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B}
+      NEBIUS_OFFLINE_DEMO: ${NEBIUS_OFFLINE_DEMO:-false}
+      MATERIALS_PROJECT_API_KEY: ${MATERIALS_PROJECT_API_KEY:-}
+    volumes:
+      - jupiter-data:/app/backend/data
+
+volumes:
+  jupiter-data:

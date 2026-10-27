@@ -1,0 +1,135 @@
+export type InferenceMode = "live" | "offline_demo" | "unconfigured" | "failed";
+
+export interface InferenceStatus {
+  mode: InferenceMode;
+  configured: boolean;
+  offline_demo: boolean;
+  model: string;
+  base_url: string;
+  message: string;
+  docs: string;
+}
+
+export interface InferenceMeta {
+  mode: InferenceMode;
+  model: string | null;
+  latency_ms: number | null;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  total_tokens: number | null;
+  request_id: string | null;
+  error: string | null;
+  note: string | null;
+}
+
+export interface ValidationIssue {
+  code: string;
+  severity: "error" | "warning" | "info";
+  message: string;
+  column?: string | null;
+  count?: number | null;
+}
+
+export interface BoundSpec {
+  min: number;
+  max: number;
+  unit: string;
+}
+
+export interface OptimizationConfig {
+  input_variables: string[];
+  target_metric: string;
+  direction: "maximize" | "minimize";
+  units: Record<string, string>;
+  bounds: Record<string, BoundSpec>;
+  batch_size: number;
+  experiment_budget: number;
+  candidate_pool?: number;
+}
+
+export interface DatasetPreview {
+  dataset_id: string;
+  version: number;
+  name: string;
+  n_rows: number;
+  n_columns: number;
+  columns: string[];
+  numeric_columns: string[];
+  dtypes: Record<string, string>;
+  preview_rows: Record<string, unknown>[];
+  missing_counts: Record<string, number>;
+  duplicate_row_count: number;
+  data_origin?: string | null;
+  issues: ValidationIssue[];
+  valid_for_modeling: boolean;
+  initial_design_recommended: boolean;
+}
+
+export interface RecommendationRow {
+  rank: number;
+  parameters: Record<string, number>;
+  predicted_mean: number | null;
+  predicted_std: number | null;
+  acquisition: number;
+  tradeoff: "exploit" | "explore" | "balanced" | "initial_design";
+  explanation: string;
+  uncertainty_label: string;
+  source: string;
+}
+
+export interface RecommendResponse {
+  batch_id: string;
+  strategy: "expected_improvement" | "initial_design";
+  dataset_version: number;
+  n_observed: number;
+  n_excluded: number;
+  remaining_budget: number;
+  rows: RecommendationRow[];
+  model_config_snapshot: Record<string, unknown>;
+  warnings: string[];
+  inference: InferenceMeta | null;
+  change_summary?: string | null;
+  numerical_change?: string | null;
+  validation_summary?: string | null;
+}
+
+export interface Observation {
+  id: string;
+  experiment_id?: string | null;
+  parameters: Record<string, number>;
+  observed: number;
+  source: string;
+  created_at: string;
+}
+
+export interface ProjectState {
+  id: string;
+  name: string;
+  created_at: string;
+  config: OptimizationConfig | null;
+  dataset: DatasetPreview | null;
+  sample_metadata: {
+    name: string;
+    composition: string;
+    disclaimer: string;
+    inputs: { name: string; unit: string; low: number; high: number; description: string }[];
+    target: { name: string; unit: string; direction: string; description: string };
+  };
+  observations: Observation[];
+  batches: RecommendResponse[];
+  inference: InferenceStatus;
+}
+
+export interface PlotData {
+  target: string | null;
+  points: {
+    experiment_id?: string | null;
+    parameters: Record<string, number>;
+    observed: number | null;
+    predicted_mean: number | null;
+    predicted_std: number | null;
+    kind: string;
+    batch_id?: string | null;
+  }[];
+  latest_batch: RecommendResponse | null;
+}
