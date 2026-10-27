@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BudgetBar, ParityChart } from "../components/Charts";
+import { BaselineCompare, BudgetBar, ParityChart } from "../components/Charts";
 import { api } from "../api";
 import { useProject } from "../context";
 import type { CampaignReview } from "../types";
@@ -54,6 +54,14 @@ export function Review() {
           </article>
         </div>
         <BudgetBar used={review.budget.used} total={review.budget.total} />
+        {review.batches[0]?.baseline_comparison && (
+          <div style={{ marginTop: 12 }}>
+            <h3 className="meta" style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Latest batch vs space-filling baseline
+            </h3>
+            <BaselineCompare comparison={review.batches[0].baseline_comparison} />
+          </div>
+        )}
         <p className="meta">
           Origin: {origin}. Direction: {review.direction}.{" "}
           {origin === "synthetic_demonstration"
@@ -110,6 +118,7 @@ export function Review() {
                 <th>n at fit</th>
                 <th>Mean μ</th>
                 <th>Mean σ</th>
+                <th>EI lift</th>
                 <th>Tradeoffs</th>
               </tr>
             </thead>
@@ -124,6 +133,11 @@ export function Review() {
                   <td>{batch.n_observed_at_fit ?? "—"}</td>
                   <td className="mono">{formatNum(batch.mean_prediction, 2)}</td>
                   <td className="mono">{formatNum(batch.mean_std, 2)}</td>
+                  <td className="mono">
+                    {batch.baseline_comparison?.applicable
+                      ? formatNum(batch.baseline_comparison.ei_lift, 4)
+                      : "—"}
+                  </td>
                   <td>{batch.tradeoffs.join(", ")}</td>
                 </tr>
               ))}

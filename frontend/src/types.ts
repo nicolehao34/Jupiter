@@ -77,6 +77,18 @@ export interface RecommendationRow {
   source: string;
 }
 
+export interface BaselineComparison {
+  applicable: boolean;
+  method: string;
+  n?: number;
+  proposed_sum_ei?: number;
+  baseline_sum_ei?: number;
+  proposed_mean_ei?: number;
+  baseline_mean_ei?: number;
+  ei_lift?: number;
+  note: string;
+}
+
 export interface RecommendResponse {
   batch_id: string;
   strategy: "expected_improvement" | "initial_design";
@@ -91,6 +103,7 @@ export interface RecommendResponse {
   change_summary?: string | null;
   numerical_change?: string | null;
   validation_summary?: string | null;
+  baseline_comparison?: BaselineComparison | null;
 }
 
 export interface Observation {
@@ -140,6 +153,7 @@ export interface CampaignReview {
     mean_prediction: number | null;
     mean_std: number | null;
     tradeoffs: string[];
+    baseline_comparison?: BaselineComparison | null;
   }[];
   parity: {
     parameters: Record<string, number>;

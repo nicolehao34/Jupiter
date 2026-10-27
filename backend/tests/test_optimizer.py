@@ -89,3 +89,17 @@ def test_small_dataset_uses_initial_design():
     assert result["strategy"] == "initial_design"
     assert all(row.tradeoff == "initial_design" for row in result["rows"])
     assert all(row.predicted_mean is None for row in result["rows"])
+    assert result["baseline_comparison"]["applicable"] is False
+    assert result["baseline_comparison"]["method"] == "not_applicable_initial_design"
+
+
+def test_ei_batch_beats_spacefilling_baseline_on_sum_ei():
+    x, y, params = _seeded_observations(n=18, seed=0)
+    result = recommend(x, y, params, _config(batch_size=4), seed=1)
+    cmp_ = result["baseline_comparison"]
+    assert cmp_["applicable"] is True
+    assert cmp_["method"] == "diverse_spacefilling_from_same_pool"
+    assert cmp_["n"] == len(result["rows"])
+    assert cmp_["n"] >= 1
+    assert cmp_["proposed_sum_ei"] >= cmp_["baseline_sum_ei"]
+    assert "not a measured lab saving" in cmp_["note"].lower()

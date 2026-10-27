@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Scatter, UncertaintyBars } from "../components/Charts";
+import { BaselineCompare, Scatter, UncertaintyBars } from "../components/Charts";
 import { api } from "../api";
 import { useProject } from "../context";
 import type { OptimizationConfig } from "../types";
@@ -320,6 +320,7 @@ export function Planner() {
                 </p>
               )}
               {latest.numerical_change && <p className="meta">{latest.numerical_change}</p>}
+              <BaselineCompare comparison={latest.baseline_comparison} />
               <div className="table-wrap" style={{ maxHeight: 420 }}>
                 <table>
                   <thead>
