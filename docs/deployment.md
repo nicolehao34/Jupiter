@@ -7,7 +7,7 @@ The smallest hosted demo is **one container**: FastAPI serves `/api/*` and the b
 1. Create a Nebius Token Factory key at https://tokenfactory.nebius.com/ (API keys).
 2. Set `NEBIUS_API_KEY` in the host’s environment (never in git).
 3. Optionally set `MATERIALS_PROJECT_API_KEY` for the lookup panel.
-4. Deploy the image and paste the public URL into Devpost **and** `docs/hackathon-submission.md`.
+4. Deploy (Render blueprint `render.yaml`, or Docker/Fly below) and paste the public URL into Devpost **and** `docs/hackathon-submission.md`. Full click path: `docs/submit-now.md`.
 5. Keep the URL up through the judging period (1–15 Dec 2026).
 
 Live inference is **not** required for the numerical loop. Without a key the app still recommends experiments; the badge will read **unconfigured**.

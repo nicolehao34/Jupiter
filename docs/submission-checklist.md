@@ -31,10 +31,10 @@ Compiled from the [official rules](https://nebiusglobalaihackathon.devpost.com/r
 
 | Criterion | How this repo answers |
 | --- | --- |
-| Technological implementation | Real Token Factory client, GP+EI ranking, tests, env-configurable model |
-| Design | One workspace covering the eight-step loop, empty/loading/error/success, labeled data kinds |
-| Potential impact | Specific audience (battery process researchers) and a demo of the intended loop — without overclaiming lab savings |
-| Quality of the idea | Nemotron used as a grounded explainer, not as a fake scientist |
+| Technological implementation | Token Factory function calling, GP+EI ranking, labeled playbook, tests |
+| Design | Agent / Plan / Review workspace, empty/loading/error/success, labeled data kinds |
+| Potential impact | Specific audience (battery process researchers) plus run sheet — without overclaiming lab savings |
+| Quality of the idea | Nemotron as a tool-using campaign manager, not a fake scientist |
 
 ## Before you click Submit
 

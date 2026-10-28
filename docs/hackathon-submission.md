@@ -8,11 +8,11 @@
 
 ## Project title
 
-**Jupiter** — an experiment planner that helps battery researchers improve an existing material with fewer processing runs.
+**Jupiter** — an autonomous campaign agent that helps battery researchers improve an existing material with fewer processing runs.
 
 ## Elevator pitch (≤ 500 characters)
 
-Battery labs still brute-force calcination temperature, hold time, and electrode recipe. Jupiter loads a table (or a labeled synthetic NMC811 demo), fits a Gaussian-process surrogate, and ranks a diverse batch with expected improvement. NVIDIA Nemotron on Nebius Token Factory turns a goal sentence into a reviewable config and explains explore-vs-exploit using those numbers — it never invents predictions. Record results, regenerate, export CSV.
+Battery labs still brute-force calcination temperature, hold time, and slurry recipe. Jupiter is a Token Factory agent: NVIDIA Nemotron calls tools to load a labeled NMC811 demo, fit a Gaussian-process surrogate, rank a diverse EI batch, emit a furnace run sheet, and brief the PI. It never invents μ, σ, EI, or lab results. A human still types furnace outcomes. Without a key it runs a labeled playbook of the same tools.
 
 ## What we built
 
@@ -36,6 +36,7 @@ A research workspace (React + FastAPI) for **closed-loop processing optimization
 | Explain ranked rows (explore vs exploit) using supplied μ, σ, EI | same | same |
 | Summarize how the batch changed after new results | same | same |
 | Write a PI brief from stored best / budget / EI lift / run sheet | same | same |
+| Campaign agent tool loop (inspect, load, generate, run sheet, brief) | same + `tools` | [function calling](https://docs.tokenfactory.nebius.com/ai-models-inference/function-calling) |
 
 Server-side only. No key in the browser. Catalog IDs verified 27 Oct 2026 from [Token Factory model catalog](https://tokenfactory.nebius.com/model-catalog.md) and [quickstart](https://docs.tokenfactory.nebius.com/quickstart). Switch to Super/Ultra via `NEBIUS_MODEL` if you want heavier reasoning.
 
@@ -43,7 +44,7 @@ The numerical engine is **not** Nemotron. If `NEBIUS_API_KEY` is missing, recomm
 
 ## Why this track
 
-A tool a researcher would actually open between furnace runs: copilot for the *next batch*, not a robot. Serverless Endpoints/Jobs are encouraged by the rules but not required; Token Factory runtime calls satisfy “runs on Nebius Token Factory.”
+A researcher-facing campaign agent for the *next batch*, not a robot. Nemotron selects tools; the GP ranks. Serverless Endpoints/Jobs are encouraged by the rules but not required; Token Factory runtime calls (including function calling) satisfy “runs on Nebius Token Factory.”
 
 ## Audience and impact (honest)
 
@@ -53,7 +54,7 @@ A tool a researcher would actually open between furnace runs: copilot for the *n
 
 ## How it works (one paragraph)
 
-CSV → validator → optional Nemotron config draft → sklearn `GaussianProcessRegressor` (Matern 2.5, normalized X and y) → Latin-hypercube candidates inside user bounds → expected improvement → diversity-penalized batch, excluding completed and open proposals → Nemotron restates the numbers → SQLite stores dataset version, config, and batch.
+Goal → Token Factory tool loop (or labeled playbook) → inspect/load/propose → sklearn `GaussianProcessRegressor` (Matern 2.5) + expected improvement → diversity batch vs space-filling baseline → furnace run sheet → grounded PI brief. SQLite stores dataset version, config, and batch. The agent cannot write measured results.
 
 ## Demo URL
 

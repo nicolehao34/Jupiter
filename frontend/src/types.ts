@@ -214,6 +214,23 @@ export interface CampaignBrief {
   inference: InferenceMeta;
 }
 
+export interface AgentStep {
+  tool: string | null;
+  arguments: Record<string, unknown>;
+  ok: boolean;
+  error?: string | null;
+  result?: unknown;
+}
+
+export interface AgentRun {
+  controller: "live" | "playbook" | "failed";
+  goal_text: string;
+  inference: InferenceMeta | null;
+  transcript: AgentStep[];
+  final_text: string;
+  disclaimer: string;
+}
+
 export interface PlotData {
   target: string | null;
   points: {

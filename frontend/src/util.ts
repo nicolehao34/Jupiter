@@ -11,7 +11,9 @@ export function formatNum(value: number | null | undefined, digits = 2) {
   return value.toFixed(digits);
 }
 
-export function routeFromHash(): "plan" | "review" {
+export function routeFromHash(): "plan" | "review" | "agent" {
   const hash = window.location.hash.replace(/^#\/?/, "");
-  return hash.startsWith("review") ? "review" : "plan";
+  if (hash.startsWith("review")) return "review";
+  if (hash.startsWith("agent")) return "agent";
+  return "plan";
 }
