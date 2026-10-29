@@ -10,11 +10,11 @@ This repository ships a **seeded synthetic NMC811 cathode-processing table** so 
 
 Landing **Agent** workspace → Run campaign (tool transcript, ranked batch, furnace sheet) → inspect **Plan** / **Review**. About 45 seconds. In this recording Nemotron may be **unconfigured**; the badge says so and the agent uses a labeled playbook of the same tools, not a fake live loop. There is no copilot sidebar; asking is optional under the agent.
 
-[![Plan, Review, and Copilot](docs/media/plan-review-copilot-demo.jpg)](docs/media/plan-review-copilot-demo.mp4)
+[![Autonomous campaign agent walkthrough](docs/media/agent-campaign-demo.jpg)](docs/media/agent-campaign-demo.mp4)
 
-<video src="docs/media/plan-review-copilot-demo.mp4" poster="docs/media/plan-review-copilot-demo.jpg" controls muted playsinline width="100%"></video>
+<video src="docs/media/agent-campaign-demo.mp4" poster="docs/media/agent-campaign-demo.jpg" controls muted playsinline width="100%"></video>
 
-Download: [`docs/media/plan-review-copilot-demo.mp4`](docs/media/plan-review-copilot-demo.mp4)
+Download: [`docs/media/agent-campaign-demo.mp4`](docs/media/agent-campaign-demo.mp4)
 
 ## Demo scenario
 

@@ -13,11 +13,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (!response.ok) {
     let detail = response.statusText;
+    const raw = await response.text();
     try {
-      const body = await response.json();
-      detail = body.detail || JSON.stringify(body);
+      const body = JSON.parse(raw) as { detail?: string };
+      detail = body.detail || raw || detail;
     } catch {
-      detail = await response.text();
+      detail = raw || detail;
     }
     throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }
