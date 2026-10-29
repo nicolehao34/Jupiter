@@ -2,13 +2,13 @@
 
 Hackathon MVP for the **Nebius × NVIDIA Global AI Hackathon**, Best Apps and Agents track.
 
-Jupiter helps a researcher **improve an existing battery material** by ranking the next processing-parameter experiments. The first version is narrow and explicit: a few continuous numeric inputs, one target metric, human-entered results.
+Jupiter is an **autonomous campaign agent** that helps a researcher **improve an existing battery material**. NVIDIA Nemotron on Nebius Token Factory calls tools (inspect, load, generate, run sheet, PI brief). Ranking is still a Gaussian process. Humans still type furnace results. The first version is narrow: a few continuous numeric inputs, one target metric.
 
 This repository ships a **seeded synthetic NMC811 cathode-processing table** so the demo runs without a lab file. That table is an invented response surface. It is **not** real battery physics, and the app does **not** claim to have reduced real lab experiments. The intended benefit is fewer wasted runs once you put real measurements in.
 
 ## UI walkthrough
 
-Plan → generate a ranked batch → **Review** (budget, in-sample parity, batch timeline) → **Copilot** (same campaign, facts only). About 45 seconds. In this recording Nemotron is **unconfigured** (no Token Factory key); the badge says so and does not pretend the reply is live.
+Landing **Agent** workspace → Run campaign (tool transcript, ranked batch, furnace sheet) → inspect **Plan** / **Review**. About 45 seconds. In this recording Nemotron may be **unconfigured**; the badge says so and the agent uses a labeled playbook of the same tools, not a fake live loop. There is no copilot sidebar; asking is optional under the agent.
 
 [![Plan, Review, and Copilot](docs/media/plan-review-copilot-demo.jpg)](docs/media/plan-review-copilot-demo.mp4)
 
@@ -36,7 +36,8 @@ React (Vite)  ──/api──►  FastAPI
                            ├─ CSV validation
                            ├─ sklearn GaussianProcessRegressor + expected improvement
                            ├─ SQLite (dataset version, config, batches, results)
-                           ├─ Nebius Token Factory client (NVIDIA Nemotron)
+                           ├─ Nebius Token Factory agent (NVIDIA Nemotron + tools)
+                           ├─ campaign playbook when unconfigured (labeled, not live)
                            ├─ optional PyBaMM Chen2020 SPM example
                            └─ optional Materials Project formula lookup
 ```
@@ -49,7 +50,7 @@ Server-side Chat Completions against Nebius Token Factory:
 
 - **Base URL:** `https://api.tokenfactory.nebius.com/v1` ([quickstart](https://docs.tokenfactory.nebius.com/quickstart))
 - **Default model:** `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` ([catalog, 2026-10-27](https://tokenfactory.nebius.com/model-catalog.md))
-- **Calls:** (1) researcher goal → reviewable config, (2) summarize validator issues, (3) explain ranked rows including explore vs exploit, (4) summarize how recommendations changed after new results.
+- **Calls:** goal → config; validation summary; batch explanations; change summary; PI brief; **campaign agent tool loop** ([function calling](https://docs.tokenfactory.nebius.com/ai-models-inference/function-calling)).
 
 Set `NEBIUS_MODEL` to Super or Ultra if you want heavier reasoning (`nvidia/nemotron-3-super-120b-a12b`, `nvidia/Nemotron-3-Ultra-550b-a55b`).
 
@@ -77,7 +78,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 (`#/plan`). The complementary **Review** tab (`#/review`) and the **Copilot** sidebar share the same campaign: Review shows budget, best/worst, batch timeline, and an in-sample parity plot; Copilot asks Nemotron questions grounded only in stored facts. The UI proxies `/api` to port 8000.
+Open http://localhost:5173 (`#/agent`). **Plan** (`#/plan`) and **Review** (`#/review`) share the same campaign. Copilot asks grounded questions or links to **Run as agent**. The UI proxies `/api` to port 8000.
 
 ### Live Nemotron
 
@@ -106,7 +107,7 @@ docker compose up --build
 # http://localhost:8000
 ```
 
-Hosted demo notes: [`docs/deployment.md`](docs/deployment.md).
+Hosted demo: [`docs/deployment.md`](docs/deployment.md), Render blueprint `render.yaml`. Official submit clicks: [`docs/submit-now.md`](docs/submit-now.md).
 
 ## Core workflow
 
@@ -143,12 +144,12 @@ PyBaMM here is a **Chen2020 SPM cell discharge**, not a processing-parameter mod
 
 | Path | What |
 | --- | --- |
-| `backend/app` | API, validator, GP, Nebius client |
+| `backend/app` | API, validator, GP, Token Factory agent |
 | `frontend` | Research workspace UI |
 | `data/samples` | Seeded demo CSV + metadata |
-| `docs/hackathon-submission.md` | Devpost draft |
+| `docs/hackathon-submission.md` | Devpost paste |
 | `docs/demo-script.md` | ≤3 min video script |
-| `docs/submission-checklist.md` | Official rules checklist |
+| `docs/submit-now.md` | Nicole’s remaining official clicks |
 | `LICENSE` | MIT |
 
 ## License

@@ -10,8 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .config import get_settings
-from . import nebius, optional_science, store
-from .schemas import AskRequest, GoalRequest, OptimizationConfig, ResultRow, SimulationRequest
+from . import agent, nebius, optional_science, store
+from .schemas import AgentRunRequest, AskRequest, GoalRequest, OptimizationConfig, ResultRow, SimulationRequest
 from .synthetic import sample_metadata
 
 settings = get_settings()
@@ -180,6 +180,15 @@ def review(project_id: str) -> dict[str, Any]:
         return store.review_payload(project_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/projects/{project_id}/agent/run")
+def run_agent(project_id: str, body: AgentRunRequest) -> dict[str, Any]:
+    try:
+        store.project_payload(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return agent.run_campaign_agent(project_id, body.goal_text, max_steps=body.max_steps)
 
 
 @app.get("/api/projects/{project_id}/brief")

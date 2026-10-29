@@ -1,4 +1,5 @@
 import type {
+  AgentRun,
   AskReply,
   CampaignBrief,
   CampaignReview,
@@ -91,6 +92,12 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question }),
+    }),
+  runAgent: (id: string, goalText: string) =>
+    request<AgentRun>(`/api/projects/${id}/agent/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal_text: goalText }),
     }),
   simulate: (c_rate: number, temperature_C: number) =>
     request<Record<string, unknown>>("/api/simulate/pybamm", {

@@ -244,6 +244,55 @@ def complete(purpose: str, user_payload: dict[str, Any], project_id: str | None 
             {"role": "user", "content": json.dumps(user_payload)},
         ],
     }
+    data, meta = _post_chat(body, purpose=purpose, project_id=project_id)
+    if meta.mode != "live" or not data:
+        return "", meta
+    try:
+        return _message_content(data), meta
+    except ValueError as exc:
+        meta.mode = "failed"
+        meta.error = str(exc)
+        return "", meta
+
+
+def complete_with_tools(
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    project_id: str | None = None,
+) -> tuple[dict[str, Any], InferenceMeta]:
+    """Live Token Factory function calling. Docs: function-calling page on Token Factory."""
+    settings = get_settings()
+    if settings.inference_mode != "live":
+        meta = InferenceMeta(
+            mode=settings.inference_mode,
+            model=settings.nebius_model if settings.inference_mode == "unconfigured" else None,
+            error=(
+                None
+                if settings.inference_mode == "offline_demo"
+                else "NEBIUS_API_KEY is not set. Use the labeled playbook, not a fake live tool loop."
+            ),
+            note="Not a live Token Factory tool-calling response.",
+        )
+        _log(project_id, "campaign_agent", meta)
+        return {}, meta
+    body = {
+        "model": settings.nebius_model,
+        "temperature": 0.2,
+        "max_tokens": 1200,
+        "messages": messages,
+        "tools": tools,
+        "tool_choice": "auto",
+    }
+    data, meta = _post_chat(body, purpose="campaign_agent", project_id=project_id)
+    if meta.mode != "live" or not data:
+        return {}, meta
+    choices = data.get("choices") or []
+    message = (choices[0].get("message") or {}) if choices else {}
+    return message, meta
+
+
+def _post_chat(body: dict[str, Any], *, purpose: str, project_id: str | None) -> tuple[dict[str, Any], InferenceMeta]:
+    settings = get_settings()
     url = settings.nebius_base_url.rstrip("/") + "/chat/completions"
     headers = {
         "Authorization": f"Bearer {settings.nebius_api_key}",
@@ -269,9 +318,8 @@ def complete(purpose: str, user_payload: dict[str, Any], project_id: str | None 
                     error=last_error,
                 )
                 _log(project_id, purpose, meta)
-                return "", meta
+                return {}, meta
             data = response.json()
-            content = _message_content(data)
             usage = data.get("usage") or {}
             meta = InferenceMeta(
                 mode="live",
@@ -284,7 +332,7 @@ def complete(purpose: str, user_payload: dict[str, Any], project_id: str | None 
                 note="Live NVIDIA Nemotron response via Nebius Token Factory.",
             )
             _log(project_id, purpose, meta)
-            return content, meta
+            return data, meta
         except httpx.TimeoutException:
             last_error = f"Token Factory request timed out after {settings.nebius_timeout_seconds}s."
         except httpx.HTTPError as exc:
@@ -298,7 +346,7 @@ def complete(purpose: str, user_payload: dict[str, Any], project_id: str | None 
         error=last_error,
     )
     _log(project_id, purpose, meta)
-    return "", meta
+    return {}, meta
 
 
 def _offline_text(purpose: str, user_payload: dict[str, Any]) -> str:
