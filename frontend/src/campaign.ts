@@ -220,6 +220,14 @@ export function toolProvenance(step: AgentStep): string | null {
       const runs = result.runs as unknown[] | undefined;
       return `${runs?.length ?? 0} furnace setpoints — measure in the lab, do not invent.`;
     }
+    case "plan_robot_motion":
+      return [
+        "Simulated arm trajectory (not hardware).",
+        result.planner ? String(result.planner) : null,
+        result.frame_count != null ? `${String(result.frame_count)} frames` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
     case "write_pi_brief": {
       const headline = result.headline;
       return headline ? String(headline) : "Grounded PI brief from stored facts.";

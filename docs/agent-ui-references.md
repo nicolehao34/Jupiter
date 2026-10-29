@@ -35,6 +35,7 @@ Jupiter’s workspace borrows patterns from public **AI-for-science**, lab-orche
 6. **Ask panel** is optional and below the agent output (ChemCrow chat is secondary to acting).
 7. **Ranking** always comes from `generate_batch` (GP + EI), never from Nemotron text.
 8. **Inference honesty** — UI distinguishes live Token Factory, offline demo, and unconfigured playbook; unconfigured never pretends to be live.
+9. **Simulated bench robot** — after the run sheet, `plan_robot_motion` plays an RRT-Connect-style 2D path on a 3-link arm canvas ([`docs/robot-lab-simulation.md`](robot-lab-simulation.md)); labeled **Simulated arm**, not hardware.
 
 ## Out of scope (not claimed)
 

@@ -7,6 +7,7 @@ import {
   OriginChip,
 } from "../components/CampaignStatus";
 import { AskPanel } from "../components/Copilot";
+import { RobotMotionSim, type RobotMotionPlan } from "../components/RobotMotionSim";
 import { api } from "../api";
 import {
   inferenceHeadline,
@@ -29,6 +30,11 @@ const AVAILABLE_TOOLS = [
   { id: "propose_config", label: "Propose config", note: "Nemotron drafts a reviewable goal→columns map." },
   { id: "generate_batch", label: "Rank batch", note: "GP + EI only — not the LLM." },
   { id: "get_run_sheet", label: "Furnace run sheet", note: "Setpoints + what to measure." },
+  {
+    id: "plan_robot_motion",
+    label: "Simulated arm motion",
+    note: "RRT-Connect-style bench plan + IK playback (not hardware).",
+  },
   { id: "write_pi_brief", label: "PI brief", note: "Grounded summary from stored facts." },
 ];
 
@@ -36,7 +42,7 @@ const WORKFLOW_PHASES = [
   { id: "observe", label: "Observe", tools: ["inspect_campaign", "load_demo_dataset"] },
   { id: "configure", label: "Plan", tools: ["propose_config", "save_config"] },
   { id: "rank", label: "Propose runs", tools: ["generate_batch"] },
-  { id: "handoff", label: "Lab handoff", tools: ["get_run_sheet"] },
+  { id: "handoff", label: "Lab handoff", tools: ["get_run_sheet", "plan_robot_motion"] },
   { id: "checkpoint", label: "Human checkpoint", tools: [] as string[] },
 ];
 
@@ -47,6 +53,7 @@ const STEP_LABELS: Record<string, string> = {
   save_config: "Save config",
   generate_batch: "Rank batch (GP + EI)",
   get_run_sheet: "Write furnace run sheet",
+  plan_robot_motion: "Plan simulated arm motion",
   write_pi_brief: "Brief the PI",
 };
 
@@ -141,6 +148,8 @@ export function Agent() {
 
   const generate = run ? stepOf(run, "generate_batch") : undefined;
   const sheet = run ? stepOf(run, "get_run_sheet") : undefined;
+  const robotStep = run ? stepOf(run, "plan_robot_motion") : undefined;
+  const robotPlan = robotStep?.result as RobotMotionPlan | undefined;
   const briefStep = run ? stepOf(run, "write_pi_brief") : undefined;
   const batch =
     (generate?.result as {
@@ -398,6 +407,21 @@ export function Agent() {
               </ol>
             </section>
           )}
+
+          {robotPlan?.frames?.length ? (
+            <section className="card robot-handoff" style={{ marginTop: 14 }}>
+              <h2>Simulated bench robot motion</h2>
+              <p className="hint">
+                Task-and-motion style playback for crucible pick, furnace insert, and slurry handoff —{" "}
+                <strong>simulation only</strong>, inspired by self-driving lab arms (see{" "}
+                <a href="https://github.com/nicolehao34/Jupiter/blob/main/docs/robot-lab-simulation.md" target="_blank" rel="noreferrer">
+                  robot-lab-simulation.md
+                </a>
+                ). The agent stops here for a human to run furnaces and type results on Plan.
+              </p>
+              <RobotMotionSim plan={robotPlan} autoPlay={!busy} />
+            </section>
+          ) : null}
 
           {brief && (
             <section className="card" style={{ marginTop: 14 }}>
