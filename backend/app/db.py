@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine, select
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 from .config import BACKEND_ROOT, get_settings
@@ -27,6 +27,7 @@ class Project(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     config_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     dataset_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    agent_session_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class Dataset(Base):
@@ -95,8 +96,19 @@ def get_engine():
                 url = f"sqlite:///{(BACKEND_ROOT / rel).as_posix()}"
         _engine = create_engine(url, connect_args={"check_same_thread": False})
         Base.metadata.create_all(_engine)
+        _migrate_projects_agent_session(_engine)
         _Session = sessionmaker(bind=_engine, expire_on_commit=False)
     return _engine
+
+
+def _migrate_projects_agent_session(engine) -> None:
+    """Add agent_session_json to existing SQLite DBs created before the agent loop."""
+    with engine.connect() as conn:
+        rows = conn.execute(text("PRAGMA table_info(projects)")).fetchall()
+        columns = {row[1] for row in rows}
+        if "agent_session_json" not in columns:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN agent_session_json TEXT"))
+            conn.commit()
 
 
 def session():

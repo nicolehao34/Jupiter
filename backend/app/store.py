@@ -71,6 +71,7 @@ def project_payload(project_id: str) -> dict[str, Any]:
                     **load(batch.payload_json, {}),
                 }
             )
+        agent_session = load(project.agent_session_json, None)
         return {
             "id": project.id,
             "name": project.name,
@@ -81,6 +82,7 @@ def project_payload(project_id: str) -> dict[str, Any]:
             "observations": observations,
             "batches": batches,
             "inference": nebius.inference_status(),
+            "agent_session": agent_session_summary(agent_session),
         }
     finally:
         db.close()
@@ -723,6 +725,48 @@ def _open_proposals(db, project_id: str, config: OptimizationConfig) -> list[dic
             if round_key(params) not in observed_keys:
                 excluded.append(params)
     return excluded
+
+
+def get_agent_session(project_id: str) -> dict[str, Any] | None:
+    db = session()
+    try:
+        project = db.get(Project, project_id)
+        if project is None:
+            raise KeyError("Project not found.")
+        return load(project.agent_session_json, None)
+    finally:
+        db.close()
+
+
+def save_agent_session(project_id: str, agent_session: dict[str, Any] | None) -> None:
+    db = session()
+    try:
+        project = _require_project(db, project_id)
+        project.agent_session_json = dump(agent_session) if agent_session else None
+        db.commit()
+    finally:
+        db.close()
+
+
+def clear_agent_session(project_id: str) -> None:
+    save_agent_session(project_id, None)
+
+
+def agent_session_summary(agent_session: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not agent_session:
+        return None
+    return {
+        "goal_text": agent_session.get("goal_text"),
+        "turn": agent_session.get("turn", 0),
+        "phase": agent_session.get("phase"),
+        "stop_reason": agent_session.get("stop_reason"),
+        "controller": agent_session.get("controller"),
+        "observations_at_checkpoint": agent_session.get("observations_at_checkpoint"),
+        "can_continue": bool(agent_session.get("can_continue")),
+        "running_plan": agent_session.get("running_plan") or [],
+        "transcript_length": len(agent_session.get("transcript") or []),
+        "updated_at": agent_session.get("updated_at"),
+    }
 
 
 def _require_project(db, project_id: str) -> Project:
