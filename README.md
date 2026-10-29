@@ -8,7 +8,7 @@ This repository ships a **seeded synthetic NMC811 cathode-processing table** so 
 
 ## UI walkthrough
 
-Landing **Agent** workspace → Run campaign (tool transcript, ranked batch, furnace sheet) → inspect **Plan** / **Review**. About 45 seconds. In this recording Nemotron may be **unconfigured**; the badge says so and the agent uses a labeled playbook of the same tools, not a fake live loop. There is no copilot sidebar; asking is optional under the agent.
+Landing **Agent** workspace → Run campaign (tool transcript, ranked batch, furnace sheet) → inspect **Plan** / **Review**. A campaign status strip on every tab shows Token Factory mode, checkpoint/next action, and measured vs predicted vs synthetic vs simulated origins. About 45 seconds. In this recording Nemotron may be **unconfigured**; the badge says so and the agent uses a labeled playbook of the same tools, not a fake live loop. There is no copilot sidebar; asking is optional under the agent.
 
 [![Autonomous campaign agent walkthrough](docs/media/agent-campaign-demo.jpg)](docs/media/agent-campaign-demo.mp4)
 
@@ -98,6 +98,7 @@ Get a key: https://tokenfactory.nebius.com/ (log in, API keys). Hackathon credit
 ```bash
 source .venv/bin/activate
 cd backend && python -m pytest -q
+cd ../frontend && npm test
 ```
 
 ### Docker

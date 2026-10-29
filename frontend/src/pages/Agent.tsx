@@ -1,7 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { BaselineCompare } from "../components/Charts";
+import {
+  BudgetProgress,
+  DataOriginLegend,
+  NextActionCard,
+  OriginChip,
+} from "../components/CampaignStatus";
 import { AskPanel } from "../components/Copilot";
 import { api } from "../api";
+import {
+  inferenceHeadline,
+  normalizePlanSteps,
+  planStepStatusText,
+  stopReasonLabel,
+  toolProvenance,
+} from "../campaign";
 import { useProject } from "../context";
 import type { AgentRun, AgentStep, BaselineComparison, CampaignBrief } from "../types";
 import { formatNum } from "../util";
@@ -21,10 +34,10 @@ const AVAILABLE_TOOLS = [
 
 const WORKFLOW_PHASES = [
   { id: "observe", label: "Observe", tools: ["inspect_campaign", "load_demo_dataset"] },
-  { id: "plan", label: "Plan", tools: ["propose_config"] },
-  { id: "propose", label: "Propose runs", tools: ["generate_batch"] },
+  { id: "configure", label: "Plan", tools: ["propose_config", "save_config"] },
+  { id: "rank", label: "Propose runs", tools: ["generate_batch"] },
   { id: "handoff", label: "Lab handoff", tools: ["get_run_sheet"] },
-  { id: "report", label: "Report", tools: ["write_pi_brief"] },
+  { id: "checkpoint", label: "Human checkpoint", tools: [] as string[] },
 ];
 
 const STEP_LABELS: Record<string, string> = {
@@ -38,7 +51,7 @@ const STEP_LABELS: Record<string, string> = {
 };
 
 function stepOf(run: AgentRun, name: string): AgentStep | undefined {
-  return run.transcript.find((step) => step.tool === name && step.ok);
+  return [...run.transcript].reverse().find((step) => step.tool === name && step.ok);
 }
 
 function phaseStatus(
@@ -46,32 +59,22 @@ function phaseStatus(
   run: AgentRun | null,
   busy: boolean,
 ): "pending" | "running" | "done" | "error" {
+  if (phase.id === "checkpoint") {
+    if (run?.stop_reason === "awaiting_lab_results") return "running";
+    if (run?.stop_reason === "human_checkpoint" && !busy) return "done";
+    return "pending";
+  }
   if (!run) return busy && phase.id === "observe" ? "running" : "pending";
   const tools = phase.tools;
   const steps = run.transcript.filter((s) => s.tool && tools.includes(s.tool));
   if (steps.some((s) => !s.ok)) return "error";
-  if (steps.length === tools.length && steps.every((s) => s.ok)) return "done";
+  if (steps.length >= tools.length && tools.every((t) => steps.some((s) => s.tool === t && s.ok))) {
+    return "done";
+  }
   const anyDone = steps.some((s) => s.ok);
   const last = run.transcript[run.transcript.length - 1];
   if (busy && last?.tool && tools.includes(last.tool)) return "running";
   return anyDone ? "running" : "pending";
-}
-
-function stopReasonLabel(reason?: string) {
-  switch (reason) {
-    case "human_checkpoint":
-      return "Stopped at human checkpoint — lab handoff";
-    case "awaiting_lab_results":
-      return "Waiting for new measured results on Plan";
-    case "tool_error":
-      return "Stopped on tool error";
-    case "max_steps":
-      return "Stopped: step budget exhausted";
-    case "model_stop":
-      return "Model ended the turn";
-    default:
-      return reason || "—";
-  }
 }
 
 export function Agent() {
@@ -91,7 +94,7 @@ export function Agent() {
         if (stored.goal_text) setGoal(stored.goal_text);
         setRun({
           controller: (stored.session.controller as AgentRun["controller"]) || "playbook",
-          goal_text: stored.goal_text || goal,
+          goal_text: stored.goal_text || DEFAULT_GOAL,
           turn: stored.session.turn,
           phase: stored.session.phase || undefined,
           stop_reason: stored.session.stop_reason || undefined,
@@ -148,8 +151,12 @@ export function Agent() {
         predicted_std: number | null;
         acquisition: number;
         tradeoff: string;
+        source?: string;
+        explanation?: string;
       }[];
       strategy?: string;
+      warnings?: string[];
+      note?: string;
       baseline_comparison?: BaselineComparison;
     }) || undefined;
   const runs =
@@ -165,8 +172,22 @@ export function Agent() {
 
   const completedSteps = run?.transcript.filter((s) => s.ok).length ?? 0;
   const progressPct = run ? Math.round((completedSteps / Math.max(run.transcript.length, 1)) * 100) : busy ? 8 : 0;
-
   const usedTools = new Set(run?.transcript.filter((s) => s.ok).map((s) => s.tool) || []);
+  const failedStep = run?.transcript.find((s) => !s.ok);
+  const planSteps = normalizePlanSteps(
+    run?.running_plan?.length
+      ? run.running_plan.map((step) => ({
+          id: step.id,
+          label: step.label,
+          status: step.status,
+        }))
+      : WORKFLOW_PHASES.map((phase) => ({
+          id: phase.id,
+          label: phase.label,
+          status: phaseStatus(phase, run, busy),
+        })),
+    run?.stop_reason,
+  );
 
   return (
     <div className="agent-page">
@@ -179,7 +200,14 @@ export function Agent() {
               planner, but scoped to battery <em>processing</em> campaigns. Ranking stays a
               Gaussian process; Nemotron selects tools and explains stored facts only.
             </p>
-            <textarea value={goal} onChange={(event) => setGoal(event.target.value)} />
+            <div className="field">
+              <label htmlFor="agent-goal">Campaign goal</label>
+              <textarea
+                id="agent-goal"
+                value={goal}
+                onChange={(event) => setGoal(event.target.value)}
+              />
+            </div>
             <div className="actions">
               <button disabled={!project || busy} onClick={() => void launch(true)}>
                 {busy ? "Running…" : "Run campaign"}
@@ -205,80 +233,48 @@ export function Agent() {
               <p className="hint live-enable-hint">{liveHint}</p>
             )}
             {(busy || run) && (
-              <div className="agent-progress">
-                <div className="budget-track">
-                  <div
-                    className={`budget-fill ${run?.transcript.some((s) => !s.ok) ? "error" : ""}`}
-                    style={{ width: `${progressPct}%` }}
-                  />
-                </div>
-                <p className="meta">
-                  {busy
-                    ? "Workflow running…"
-                    : `${completedSteps} tool step(s) · ${run?.controller === "live" ? "live Nemotron" : "labeled playbook"}`}
-                </p>
-              </div>
+              <BudgetProgress
+                used={progressPct}
+                total={100}
+                errored={Boolean(failedStep)}
+                label={
+                  busy
+                    ? "Workflow running"
+                    : `${completedSteps} tool step(s) · ${run?.controller === "live" ? "live Nemotron" : "labeled playbook"}`
+                }
+              />
             )}
           </section>
 
-          {(run?.running_plan?.length || busy) && (
-            <section className="card" style={{ marginTop: 14 }}>
-              <h2>Running plan</h2>
-              <p className="hint">Open Coscientist-style plan steps — updated each agent turn from tool outcomes.</p>
-              <ol className="workflow-stepper">
-                {(run?.running_plan || []).map((step) => (
-                  <li key={step.id} className={`phase ${step.status}`}>
+          <section className="card" style={{ marginTop: 14 }}>
+            <h2>Campaign progress</h2>
+            <p className="hint">
+              One plan, updated from tool outcomes (Open Coscientist / IvoryOS). The last step is a
+              human checkpoint — AlabOS-style operator handoff, not a finished measurement.
+            </p>
+            <ol className="workflow-stepper">
+              {planSteps.map((step) => {
+                const statusText = planStepStatusText(step.status, step.id, run?.stop_reason);
+                return (
+                  <li key={step.id} className={`phase ${step.status}${step.id === "checkpoint" ? " human" : ""}`}>
                     <span className="phase-dot" aria-hidden />
                     <div>
                       <p className="agent-step-name">{step.label}</p>
-                      <p className="meta">{step.status}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-
-          <section className="card" style={{ marginTop: 14 }}>
-            <h2>Workflow phases</h2>
-            <p className="hint">
-              Inspired by IvoryOS preparation / experiment / cleanup tabs and AlabOS experiment
-              progress — here: observe → plan → propose → lab handoff → report, then a human
-              checkpoint.
-            </p>
-            <ol className="workflow-stepper">
-              {WORKFLOW_PHASES.map((phase) => {
-                const status = phaseStatus(phase, run, busy);
-                return (
-                  <li key={phase.id} className={`phase ${status}`}>
-                    <span className="phase-dot" aria-hidden />
-                    <div>
-                      <p className="agent-step-name">{phase.label}</p>
-                      <p className="meta">{phase.tools.map((t) => STEP_LABELS[t] || t).join(" · ")}</p>
+                      <p className="meta">
+                        <span className="visually-hidden">Status: </span>
+                        {statusText}
+                      </p>
                     </div>
                   </li>
                 );
               })}
-              <li className={`phase ${run && !busy ? "done" : "pending"} human`}>
-                <span className="phase-dot" aria-hidden />
-                <div>
-                  <p className="agent-step-name">Human checkpoint</p>
-                  <p className="meta">Run the furnace, then type measured capacity on Plan.</p>
-                </div>
-              </li>
             </ol>
           </section>
 
-          {run && (
-            <section className="card checkpoint" style={{ marginTop: 14 }}>
-              <h2>Your turn at the bench</h2>
-              <p>
-                The agent stops before inventing lab data (self-driving-lab dashboards treat this
-                as an operator handoff). Export the run sheet, execute the furnaces, then{" "}
-                <a href="#/plan">save results on Plan</a> and run the agent again or regenerate
-                manually.
-              </p>
-            </section>
+          {(busy || run) && (
+            <div style={{ marginTop: 14 }}>
+              <NextActionCard busy={busy} run={run} />
+            </div>
           )}
 
           {run && (
@@ -305,18 +301,19 @@ export function Agent() {
                     </span>
                     <div>
                       <p className="agent-step-name">{STEP_LABELS[step.tool || ""] || step.tool || "stop"}</p>
-                      {step.error && <p className="meta">{step.error}</p>}
-                      {step.ok && step.tool === "generate_batch" && (
-                        <p className="meta">
-                          {(step.result as { strategy?: string })?.strategy} ·{" "}
-                          {((step.result as { rows?: unknown[] })?.rows || []).length} ranked runs
-                        </p>
-                      )}
+                      <p className="meta">{toolProvenance(step)}</p>
                     </div>
                   </li>
                 ))}
               </ol>
-              <p>{run.final_text}</p>
+              {failedStep && (
+                <div className="status error" role="alert">
+                  Recoverable error at {STEP_LABELS[failedStep.tool || ""] || failedStep.tool}:{" "}
+                  {failedStep.error}. Fix the campaign on Plan if needed, then run again — do not
+                  invent a workaround.
+                </div>
+              )}
+              {run.final_text && <p>{run.final_text}</p>}
               <p className="hint">{run.disclaimer}</p>
             </section>
           )}
@@ -324,20 +321,34 @@ export function Agent() {
           {batch?.rows && (
             <section className="card" style={{ marginTop: 14 }}>
               <h2>Proposed experiments</h2>
-              <p className="meta">From generate_batch — GP estimates, not Nemotron inventions.</p>
+              <p className="meta">
+                From generate_batch — {batch.note || "GP estimates, not Nemotron inventions."}
+              </p>
+              <DataOriginLegend extra="These rows are predicted until you type a furnace measurement on Plan." />
               <BaselineCompare comparison={batch.baseline_comparison} />
+              {(batch.warnings || []).map((warning) => (
+                <p key={warning} className="issue warning">
+                  {warning}
+                </p>
+              ))}
               <div className="table-wrap">
                 <table>
+                  <caption className="visually-hidden">
+                    Ranked processing runs with predicted capacity from the Gaussian process
+                  </caption>
                   <thead>
                     <tr>
-                      <th>#</th>
+                      <th scope="col">#</th>
                       {inputs.map((name) => (
-                        <th key={name}>{name}</th>
+                        <th scope="col" key={name}>
+                          {name}
+                        </th>
                       ))}
-                      <th>Predicted</th>
-                      <th>± std</th>
-                      <th>EI</th>
-                      <th>Tradeoff</th>
+                      <th scope="col">Predicted</th>
+                      <th scope="col">± std</th>
+                      <th scope="col">EI</th>
+                      <th scope="col">Tradeoff</th>
+                      <th scope="col">Origin</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -354,6 +365,9 @@ export function Agent() {
                         <td className="mono">{formatNum(row.acquisition, 4)}</td>
                         <td>
                           <span className={`chip ${row.tradeoff}`}>{row.tradeoff}</span>
+                        </td>
+                        <td>
+                          <OriginChip kind={row.source || "surrogate_prediction"} />
                         </td>
                       </tr>
                     ))}
@@ -409,7 +423,7 @@ export function Agent() {
             {AVAILABLE_TOOLS.map((tool) => (
               <li key={tool.id} className={usedTools.has(tool.id) ? "used" : ""}>
                 <p className="agent-step-name">
-                  {usedTools.has(tool.id) ? "✓ " : ""}
+                  {usedTools.has(tool.id) ? "Used · " : "Available · "}
                   {tool.label}
                 </p>
                 <p className="meta">{tool.note}</p>
@@ -421,7 +435,15 @@ export function Agent() {
           </h3>
           <p className="meta">Observed: {project?.observations?.length ?? "—"}</p>
           <p className="meta">Batches: {project?.batches?.length ?? "—"}</p>
-          <p className="meta">Inference: {project?.inference?.mode ?? "—"}</p>
+          <p className="meta">
+            Inference: {inferenceHeadline(project?.inference?.mode)} ({project?.inference?.mode ?? "—"})
+          </p>
+          <p className="meta">
+            Dataset origin: {project?.dataset?.data_origin || "unspecified"}
+          </p>
+          {project?.agent_session?.phase && (
+            <p className="meta">Session: {stopReasonLabel(project.agent_session.stop_reason)}</p>
+          )}
           <p className="meta" style={{ marginTop: 12 }}>
             UI references:{" "}
             <a href="https://huggingface.co/spaces/doncamilom/ChemCrow" target="_blank" rel="noreferrer">
@@ -431,7 +453,11 @@ export function Agent() {
             <a href="https://github.com/jataware/open-coscientist-viewer" target="_blank" rel="noreferrer">
               Open Coscientist Viewer
             </a>
-            , AlabOS / IvoryOS lab dashboards (Nat. Commun. 2025).
+            ,{" "}
+            <a href="https://platform.futurehouse.org" target="_blank" rel="noreferrer">
+              FutureHouse
+            </a>
+            , AlabOS / IvoryOS lab dashboards.
           </p>
           <p className="meta">
             Deep dive:{" "}

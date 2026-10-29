@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
+import { nextCampaignAction, stopReasonLabel } from "../campaign";
 import { useProject } from "../context";
 import type { AskReply } from "../types";
 
@@ -83,11 +84,15 @@ export function AskPanel() {
         ))}
       </div>
       {error && <div className="status error">{error}</div>}
-      <textarea
-        value={question}
-        onChange={(e) => setQuestion(e.target.value)}
-        placeholder="Ask about budget, best so far, or the last batch…"
-      />
+      <div className="field">
+        <label htmlFor="ask-question">Question about stored campaign facts</label>
+        <textarea
+          id="ask-question"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Ask about budget, best so far, or the last batch…"
+        />
+      </div>
       <div className="actions">
         <button className="secondary" disabled={busy || !project} onClick={() => void send(question)}>
           {busy ? "Asking…" : "Ask"}
@@ -98,16 +103,37 @@ export function AskPanel() {
 }
 
 export function AgentDock() {
+  const { project } = useProject();
+  const session = project?.agent_session;
+  const action = nextCampaignAction({
+    stopReason: session?.stop_reason,
+    canContinue: session?.can_continue,
+    nBatches: project?.batches?.length ?? 0,
+    nObserved: project?.observations?.length ?? 0,
+    inferenceMode: project?.inference?.mode,
+  });
   return (
     <aside className="copilot card">
       <h2>Agent</h2>
       <p className="hint">
         The campaign agent owns the loop. Plan and Review only inspect the same SQLite campaign.
       </p>
+      {session?.stop_reason && (
+        <p className="meta">
+          Session: {stopReasonLabel(session.stop_reason)}
+          {session.turn != null ? ` · turn ${session.turn}` : ""}
+        </p>
+      )}
+      <p className="meta">{action.body}</p>
       <div className="actions">
-        <a className="tab active" href="#/agent">
+        <a className="tab active" href={action.href === "#/plan" ? "#/agent" : action.href}>
           Open agent
         </a>
+        {action.kind === "checkpoint" && (
+          <a className="tab" href="#/plan">
+            Record results
+          </a>
+        )}
       </div>
       <p className="meta">Ranking stays a Gaussian process. The agent cannot record furnace results.</p>
     </aside>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { BaselineCompare, BudgetBar, ParityChart } from "../components/Charts";
+import { DataOriginLegend, OriginChip } from "../components/CampaignStatus";
 import { api } from "../api";
 import { useProject } from "../context";
 import type { CampaignBrief, CampaignReview } from "../types";
@@ -9,6 +10,7 @@ export function Review() {
   const { project, wrap } = useProject();
   const [review, setReview] = useState<CampaignReview | null>(null);
   const [brief, setBrief] = useState<CampaignBrief | null>(null);
+  const [briefError, setBriefError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!project) return;
@@ -17,8 +19,10 @@ export function Review() {
       setReview(next);
       try {
         setBrief(await api.brief(project.id));
-      } catch {
+        setBriefError(null);
+      } catch (err) {
         setBrief(null);
+        setBriefError(err instanceof Error ? err.message : String(err));
       }
       return next;
     });
@@ -71,12 +75,39 @@ export function Review() {
         </section>
       )}
 
+      {!brief && (
+        <section className="card">
+          <h2>PI brief</h2>
+          {briefError ? (
+            <p className="issue warning" role="status">
+              Brief unavailable: {briefError}. Ranking and residuals below still come from stored
+              campaign facts, not from a fabricated summary.
+            </p>
+          ) : (
+            <p className="hint">
+              No brief yet. Generate a batch on Plan or run the agent, then reload Review.
+            </p>
+          )}
+          {review.n_batches === 0 && (
+            <div className="actions">
+              <a className="tab active" href="#/agent">
+                Run campaign
+              </a>
+              <a className="tab" href="#/plan">
+                Generate on Plan
+              </a>
+            </div>
+          )}
+        </section>
+      )}
+
       <section className="card">
         <h2>Campaign review</h2>
         <p className="hint">
           This view does not propose new experiments. It reads the same SQLite campaign the planner
           writes: measured or synthetic-demo rows, budget, and in-sample surrogate residuals.
         </p>
+        <DataOriginLegend extra={`Dataset origin: ${origin}.`} />
         <div className="stat-grid">
           <article>
             <p className="meta">Observed rows</p>
@@ -91,7 +122,9 @@ export function Review() {
             <p className="stat">
               {formatNum(review.best_observed?.observed, 2)} {unit}
             </p>
-            <p className="meta">{review.best_observed?.source || "—"}</p>
+            <p className="meta">
+              {review.best_observed ? <OriginChip kind={review.best_observed.source} /> : "—"}
+            </p>
           </article>
           <article>
             <p className="meta">In-sample RMSE</p>
@@ -120,6 +153,29 @@ export function Review() {
           <h2>Observed vs predicted (in-sample)</h2>
           <p className="hint">{review.residual_note}</p>
           <ParityChart review={review} />
+          {review.parity.length > 0 && (
+            <div className="table-wrap" style={{ maxHeight: 220, marginTop: 10 }}>
+              <table>
+                <caption className="visually-hidden">In-sample observed versus predicted values</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Observed</th>
+                    <th scope="col">Predicted</th>
+                    <th scope="col">Residual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {review.parity.slice(0, 12).map((point, index) => (
+                    <tr key={index}>
+                      <td className="mono">{formatNum(point.observed, 2)}</td>
+                      <td className="mono">{formatNum(point.predicted_mean, 2)}</td>
+                      <td className="mono">{formatNum(point.residual, 2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
         <section className="card">
           <h2>Best / worst observed</h2>
@@ -133,6 +189,7 @@ export function Review() {
                   .join(", ")}`
               : "—"}
           </p>
+          {review.best_observed && <OriginChip kind={review.best_observed.source} />}
           <p className="meta" style={{ marginTop: 10 }}>
             Worst
           </p>
@@ -145,6 +202,7 @@ export function Review() {
                   .join(", ")}`
               : "—"}
           </p>
+          {review.worst_observed && <OriginChip kind={review.worst_observed.source} />}
         </section>
       </div>
 
@@ -175,20 +233,24 @@ export function Review() {
       <section className="card" style={{ marginTop: 14 }}>
         <h2>Batch timeline</h2>
         {!review.batches.length && (
-          <p className="hint">No recommendation batches yet. Generate one on the Plan tab.</p>
+          <p className="hint">
+            No recommendation batches yet.{" "}
+            <a href="#/plan">Generate one on Plan</a> or <a href="#/agent">run the agent</a>.
+          </p>
         )}
         <div className="table-wrap" style={{ maxHeight: 360 }}>
           <table>
+            <caption className="visually-hidden">Recommendation batches in this campaign</caption>
             <thead>
               <tr>
-                <th>When</th>
-                <th>Id</th>
-                <th>Strategy</th>
-                <th>n at fit</th>
-                <th>Mean μ</th>
-                <th>Mean σ</th>
-                <th>EI lift</th>
-                <th>Tradeoffs</th>
+                <th scope="col">When</th>
+                <th scope="col">Id</th>
+                <th scope="col">Strategy</th>
+                <th scope="col">n at fit</th>
+                <th scope="col">Mean μ</th>
+                <th scope="col">Mean σ</th>
+                <th scope="col">EI lift</th>
+                <th scope="col">Tradeoffs</th>
               </tr>
             </thead>
             <tbody>

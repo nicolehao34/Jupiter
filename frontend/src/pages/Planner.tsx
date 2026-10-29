@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BaselineCompare, Scatter, UncertaintyBars } from "../components/Charts";
+import { DataOriginLegend, NextActionCard, OriginChip } from "../components/CampaignStatus";
 import { api } from "../api";
 import { useProject } from "../context";
 import type { OptimizationConfig } from "../types";
@@ -108,8 +109,17 @@ export function Planner() {
     if (next) await refresh(next);
   }
 
+  const checkpoint =
+    project?.agent_session?.stop_reason === "human_checkpoint" ||
+    project?.agent_session?.stop_reason === "awaiting_lab_results";
+
   return (
     <div>
+      {checkpoint && (
+        <div style={{ marginBottom: 14 }}>
+          <NextActionCard />
+        </div>
+      )}
       <div className="grid">
         <section className="card">
           <h2>1–2 · Dataset preview & validation</h2>
@@ -142,8 +152,8 @@ export function Planner() {
           {project?.dataset ? (
             <>
               <p className="meta">
-                {project.dataset.name} · {project.dataset.n_rows} rows · origin:{" "}
-                {project.dataset.data_origin || "unspecified"} · v{project.dataset.version}
+                {project.dataset.name} · {project.dataset.n_rows} rows · v{project.dataset.version}{" "}
+                <OriginChip kind={project.dataset.data_origin} />
               </p>
               <div className="table-wrap">
                 <table>
@@ -332,19 +342,33 @@ export function Planner() {
                 </p>
               )}
               {latest.numerical_change && <p className="meta">{latest.numerical_change}</p>}
+              {latest.change_summary && <p className="meta">{latest.change_summary}</p>}
+              {latest.validation_summary && <p className="meta">{latest.validation_summary}</p>}
+              {(latest.warnings || []).map((warning) => (
+                <p key={warning} className="issue warning">
+                  {warning}
+                </p>
+              ))}
+              <DataOriginLegend extra="Table μ/σ/EI are surrogate predictions, not lab measurements." />
               <BaselineCompare comparison={latest.baseline_comparison} />
               <div className="table-wrap" style={{ maxHeight: 420 }}>
                 <table>
+                  <caption className="visually-hidden">
+                    Ranked experiment batch with Gaussian-process predictions
+                  </caption>
                   <thead>
                     <tr>
-                      <th>#</th>
+                      <th scope="col">#</th>
                       {config?.input_variables.map((name) => (
-                        <th key={name}>{name}</th>
+                        <th scope="col" key={name}>
+                          {name}
+                        </th>
                       ))}
-                      <th>Predicted</th>
-                      <th>± std</th>
-                      <th>EI</th>
-                      <th>Tradeoff</th>
+                      <th scope="col">Predicted</th>
+                      <th scope="col">± std</th>
+                      <th scope="col">EI</th>
+                      <th scope="col">Tradeoff</th>
+                      <th scope="col">Origin</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -362,12 +386,22 @@ export function Planner() {
                         <td>
                           <span className={`chip ${row.tradeoff}`}>{row.tradeoff}</span>
                         </td>
+                        <td>
+                          <OriginChip kind={row.source} />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <p className="meta">{latest.rows[0]?.uncertainty_label}</p>
+              {latest.rows[0]?.explanation && (
+                <p className="meta">
+                  Rank 1 note: {latest.rows[0].explanation} {latest.rows[0].uncertainty_label}
+                </p>
+              )}
+              {!latest.rows[0]?.explanation && (
+                <p className="meta">{latest.rows[0]?.uncertainty_label}</p>
+              )}
               <div className="actions">
                 <button className="secondary" onClick={() => void exportPlan()}>
                   7 · Export plan CSV
@@ -404,6 +438,7 @@ export function Planner() {
         </section>
         <section className="card">
           <h2>Observed vs predicted</h2>
+          <DataOriginLegend extra="Left: loaded observations. Right: new GP predictions with ±1 std." />
           <Scatter plot={plot} />
           <UncertaintyBars latest={latest} unit={config?.units[config.target_metric] || ""} />
         </section>
@@ -411,6 +446,10 @@ export function Planner() {
 
       <section className="card" style={{ marginTop: 14 }}>
         <h2>8 · Record results and regenerate</h2>
+        <p className="hint">
+          Saving here marks the value as <strong>measured</strong>. The agent cannot write this
+          field. Demo CSV rows stay synthetic until you replace them with a furnace reading.
+        </p>
         <div className="field-grid">
           <div className="field">
             <label>Rank</label>
@@ -421,8 +460,9 @@ export function Planner() {
             />
           </div>
           <div className="field">
-            <label>Observed {config?.target_metric || "target"}</label>
+            <label htmlFor="observed-result">Observed {config?.target_metric || "target"}</label>
             <input
+              id="observed-result"
               value={resultDraft.observed}
               onChange={(e) => setResultDraft({ ...resultDraft, observed: e.target.value })}
             />
