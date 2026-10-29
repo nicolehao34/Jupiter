@@ -1,5 +1,6 @@
 import type {
   AgentRun,
+  AgentSessionSummary,
   AskReply,
   CampaignBrief,
   CampaignReview,
@@ -94,11 +95,26 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question }),
     }),
-  runAgent: (id: string, goalText: string) =>
+  getAgentSession: (id: string) =>
+    request<{
+      session: AgentSessionSummary | null;
+      transcript: AgentRun["transcript"];
+      goal_text?: string | null;
+      live_enable_hint?: string | null;
+    }>(`/api/projects/${id}/agent/session`),
+  runAgent: (
+    id: string,
+    goalText: string,
+    options?: { continueCampaign?: boolean; resetSession?: boolean },
+  ) =>
     request<AgentRun>(`/api/projects/${id}/agent/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ goal_text: goalText }),
+      body: JSON.stringify({
+        goal_text: goalText,
+        continue_campaign: options?.continueCampaign ?? false,
+        reset_session: options?.resetSession ?? false,
+      }),
     }),
   simulate: (c_rate: number, temperature_C: number) =>
     request<Record<string, unknown>>("/api/simulate/pybamm", {

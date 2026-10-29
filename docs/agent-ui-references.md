@@ -13,7 +13,10 @@ Jupiter’s **Agent** workspace borrows patterns from public autonomous chemistr
 ## Jupiter-specific choices
 
 1. **Agent is the default route** (`#/agent`), not a copilot sidebar — the product is “run the campaign,” not “ask a question.”
-2. **Tool transcript** shows each server-side tool call with done/stop chips (AlabOS-style task rows).
-3. **Human checkpoint** after the run sheet — the agent never writes measured furnace results (honest self-driving-lab handoff).
-4. **Ask panel** is optional and below the agent output (ChemCrow chat is secondary to acting).
-5. **Ranking** always comes from `generate_batch` (GP + EI), never from Nemotron text.
+2. **Persistent campaign session** in SQLite — transcript and (in live mode) Nemotron message history survive across turns; **Continue campaign** re-enters the loop after Plan records results.
+3. **Running plan** panel — plan-step status derived from tool outcomes (Open Coscientist / AlabOS task progress).
+4. **Tool transcript** shows each server-side tool call with done/stop chips and an explicit **stop reason** (human checkpoint, awaiting lab results, tool error).
+5. **Human checkpoint** after the run sheet — the agent never writes measured furnace results (honest self-driving-lab handoff).
+6. **Ask panel** is optional and below the agent output (ChemCrow chat is secondary to acting).
+7. **Ranking** always comes from `generate_batch` (GP + EI), never from Nemotron text.
+8. **Inference honesty** — UI distinguishes live Token Factory, offline demo, and unconfigured playbook; unconfigured never pretends to be live.

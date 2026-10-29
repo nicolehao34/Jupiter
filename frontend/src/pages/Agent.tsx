@@ -57,30 +57,82 @@ function phaseStatus(
   return anyDone ? "running" : "pending";
 }
 
+function stopReasonLabel(reason?: string) {
+  switch (reason) {
+    case "human_checkpoint":
+      return "Stopped at human checkpoint — lab handoff";
+    case "awaiting_lab_results":
+      return "Waiting for new measured results on Plan";
+    case "tool_error":
+      return "Stopped on tool error";
+    case "max_steps":
+      return "Stopped: step budget exhausted";
+    case "model_stop":
+      return "Model ended the turn";
+    default:
+      return reason || "—";
+  }
+}
+
 export function Agent() {
   const { project, latest, wrap, reload } = useProject();
   const [goal, setGoal] = useState(DEFAULT_GOAL);
   const [run, setRun] = useState<AgentRun | null>(null);
   const [busy, setBusy] = useState(false);
+  const [liveHint, setLiveHint] = useState<string | null>(null);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem("jupiter.lastAgentRun");
-    if (!raw) return;
-    try {
-      setRun(JSON.parse(raw) as AgentRun);
-    } catch {
-      sessionStorage.removeItem("jupiter.lastAgentRun");
-    }
-  }, []);
+    if (!project) return;
+    void (async () => {
+      try {
+        const stored = await api.getAgentSession(project.id);
+        if (stored.live_enable_hint) setLiveHint(stored.live_enable_hint);
+        if (!stored.session?.transcript_length) return;
+        if (stored.goal_text) setGoal(stored.goal_text);
+        setRun({
+          controller: (stored.session.controller as AgentRun["controller"]) || "playbook",
+          goal_text: stored.goal_text || goal,
+          turn: stored.session.turn,
+          phase: stored.session.phase || undefined,
+          stop_reason: stored.session.stop_reason || undefined,
+          can_continue: stored.session.can_continue,
+          running_plan: stored.session.running_plan,
+          inference: null,
+          transcript: stored.transcript,
+          final_text: "",
+          disclaimer:
+            "The agent does not record lab results. Ranking came from generate_batch (GP + EI), not Nemotron.",
+          live_enable_hint: stored.live_enable_hint,
+        });
+      } catch {
+        /* no session yet */
+      }
+    })();
+  }, [project?.id]);
 
-  async function launch() {
+  async function launch(resetSession: boolean) {
     if (!project || busy) return;
     setBusy(true);
-    const result = await wrap("Agent is running the campaign…", () => api.runAgent(project.id, goal));
+    const result = await wrap("Agent is running the campaign…", () =>
+      api.runAgent(project.id, goal, { resetSession }),
+    );
     setBusy(false);
     if (!result) return;
     setRun(result);
-    sessionStorage.setItem("jupiter.lastAgentRun", JSON.stringify(result));
+    if (result.live_enable_hint) setLiveHint(result.live_enable_hint);
+    await reload();
+  }
+
+  async function continueCampaign() {
+    if (!project || busy) return;
+    setBusy(true);
+    const result = await wrap("Agent continuing the campaign…", () =>
+      api.runAgent(project.id, goal, { continueCampaign: true }),
+    );
+    setBusy(false);
+    if (!result) return;
+    setRun(result);
+    if (result.live_enable_hint) setLiveHint(result.live_enable_hint);
     await reload();
   }
 
@@ -112,7 +164,6 @@ export function Agent() {
   );
 
   const completedSteps = run?.transcript.filter((s) => s.ok).length ?? 0;
-  const totalSteps = run?.transcript.length ?? WORKFLOW_PHASES.reduce((n, p) => n + p.tools.length, 0);
   const progressPct = run ? Math.round((completedSteps / Math.max(run.transcript.length, 1)) * 100) : busy ? 8 : 0;
 
   const usedTools = new Set(run?.transcript.filter((s) => s.ok).map((s) => s.tool) || []);
@@ -130,13 +181,29 @@ export function Agent() {
             </p>
             <textarea value={goal} onChange={(event) => setGoal(event.target.value)} />
             <div className="actions">
-              <button disabled={!project || busy} onClick={() => void launch()}>
+              <button disabled={!project || busy} onClick={() => void launch(true)}>
                 {busy ? "Running…" : "Run campaign"}
+              </button>
+              <button
+                className="secondary"
+                disabled={!project || busy || !run?.can_continue}
+                onClick={() => void continueCampaign()}
+              >
+                Continue campaign
               </button>
               <a className="tab" href="#/plan">
                 Human: record results
               </a>
             </div>
+            {run?.stop_reason && !busy && (
+              <p className="meta stop-reason">
+                <strong>Stop reason:</strong> {stopReasonLabel(run.stop_reason)}
+                {run.turn != null ? ` · Turn ${run.turn}` : ""}
+              </p>
+            )}
+            {liveHint && project?.inference?.mode !== "live" && (
+              <p className="hint live-enable-hint">{liveHint}</p>
+            )}
             {(busy || run) && (
               <div className="agent-progress">
                 <div className="budget-track">
@@ -153,6 +220,24 @@ export function Agent() {
               </div>
             )}
           </section>
+
+          {(run?.running_plan?.length || busy) && (
+            <section className="card" style={{ marginTop: 14 }}>
+              <h2>Running plan</h2>
+              <p className="hint">Open Coscientist-style plan steps — updated each agent turn from tool outcomes.</p>
+              <ol className="workflow-stepper">
+                {(run?.running_plan || []).map((step) => (
+                  <li key={step.id} className={`phase ${step.status}`}>
+                    <span className="phase-dot" aria-hidden />
+                    <div>
+                      <p className="agent-step-name">{step.label}</p>
+                      <p className="meta">{step.status}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
 
           <section className="card" style={{ marginTop: 14 }}>
             <h2>Workflow phases</h2>
@@ -205,7 +290,9 @@ export function Agent() {
                 {run.controller === "live"
                   ? "Live Token Factory tool loop"
                   : run.controller === "playbook"
-                    ? "Labeled playbook — same tools, not a fake live loop"
+                    ? project?.inference?.mode === "offline_demo"
+                      ? "Offline demo — labeled playbook, not live Nemotron"
+                      : "Unconfigured playbook — stateful tool loop, not fake live"
                     : "Agent failed"}
                 {run.inference?.model ? ` · ${run.inference.model}` : ""}
                 {run.inference?.latency_ms != null ? ` · ${run.inference.latency_ms} ms` : ""}

@@ -182,13 +182,28 @@ def review(project_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@app.get("/api/projects/{project_id}/agent/session")
+def agent_session(project_id: str) -> dict[str, Any]:
+    try:
+        store.project_payload(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return agent.get_session_payload(project_id)
+
+
 @app.post("/api/projects/{project_id}/agent/run")
 def run_agent(project_id: str, body: AgentRunRequest) -> dict[str, Any]:
     try:
         store.project_payload(project_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return agent.run_campaign_agent(project_id, body.goal_text, max_steps=body.max_steps)
+    return agent.run_campaign_agent(
+        project_id,
+        body.goal_text,
+        max_steps=body.max_steps,
+        continue_campaign=body.continue_campaign,
+        reset_session=body.reset_session,
+    )
 
 
 @app.get("/api/projects/{project_id}/brief")

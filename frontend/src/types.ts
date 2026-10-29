@@ -163,6 +163,26 @@ export interface ProjectState {
   observations: Observation[];
   batches: RecommendResponse[];
   inference: InferenceStatus;
+  agent_session?: AgentSessionSummary | null;
+}
+
+export interface AgentPlanStep {
+  id: string;
+  label: string;
+  status: "pending" | "running" | "done";
+}
+
+export interface AgentSessionSummary {
+  goal_text?: string | null;
+  turn?: number;
+  phase?: string | null;
+  stop_reason?: string | null;
+  controller?: string | null;
+  observations_at_checkpoint?: number | null;
+  can_continue?: boolean;
+  running_plan?: AgentPlanStep[];
+  transcript_length?: number;
+  updated_at?: string | null;
 }
 
 export interface CampaignReview {
@@ -225,10 +245,18 @@ export interface AgentStep {
 export interface AgentRun {
   controller: "live" | "playbook" | "failed";
   goal_text: string;
+  turn?: number;
+  phase?: string;
+  stop_reason?: string;
+  can_continue?: boolean;
+  running_plan?: AgentPlanStep[];
+  turn_transcript?: AgentStep[];
   inference: InferenceMeta | null;
   transcript: AgentStep[];
   final_text: string;
   disclaimer: string;
+  continue_hint?: string | null;
+  live_enable_hint?: string | null;
 }
 
 export interface PlotData {

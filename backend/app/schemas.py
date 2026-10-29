@@ -140,6 +140,8 @@ class AskRequest(BaseModel):
 class AgentRunRequest(BaseModel):
     goal_text: str = Field(min_length=8, max_length=4000)
     max_steps: int = Field(default=10, ge=1, le=10)
+    continue_campaign: bool = False
+    reset_session: bool = False
 
 
 class SimulationRequest(BaseModel):
