@@ -1,64 +1,75 @@
 # Submit now — what only Nicole can click
 
-Code and drafts are in this repo. These official items need **your** GitHub, Token Factory, host, YouTube, and Devpost accounts. Deadline **Friday 30 Oct 2026, 10:00 am PDT**.
+Code, tests, agent loop, and drafts are in this repo on **`main`**. These official items need **your** GitHub, Token Factory, host, YouTube, and Devpost accounts.
 
-## 1. Public repo + MIT in About (required)
+**Deadline: Friday 30 Oct 2026, 10:00 am PDT** ([Devpost rules](https://nebiusglobalaihackathon.devpost.com/rules)).
 
-1. Open https://github.com/nicolehao34/Jupiter/settings
-2. **Danger Zone → Change repository visibility → Public**
-3. Repo home → gear next to **About** → check **MIT License** so it shows at the top of the page
-4. Merge the open stack into `main` if not already: #4 baseline → #5 run sheet → #6 PI brief → #7 agent
+---
 
-`LICENSE` is already MIT (Nicole Hao 2026). GitHub only shows it in About on a **public** repo.
+## Remaining checklist (you)
 
-## 2. Live Token Factory (required for the video)
+### 1. Public repo + MIT in About (required)
 
-1. https://tokenfactory.nebius.com/ → API keys
-2. Locally or on the host: `cp .env.example .env`, set `NEBIUS_API_KEY`, `NEBIUS_OFFLINE_DEMO=false`
-3. Restart the API
-4. `curl -s https://YOUR-HOST/api/inference/status` must return `"mode": "live"`
-5. In the UI the badge must read **Live Nemotron**, not unconfigured / offline demo
+- [ ] https://github.com/nicolehao34/Jupiter/settings → **Public**
+- [ ] Repo **About** → check **MIT License** (shows at top of GitHub page)
+- [ ] Confirm `main` is current (stack #4–#11 already merged)
 
-Hackathon credits: Nebius Builder Program on the [Devpost home](https://nebiusglobalaihackathon.devpost.com/).
+### 2. Live Token Factory (required for judging video + runtime call rule)
 
-## 3. Hosted demo URL (required for Best Apps)
+- [ ] Create API key: https://tokenfactory.nebius.com/
+- [ ] Optional credits: code **`NEBIUS-DEVPOST-GLOBAL26`** + [Nebius Builder Program](https://dev.nebius.com/builders) ([hackathon resources](https://nebiusglobalaihackathon.devpost.com/resources))
+- [ ] Local or host: `cp .env.example .env`, set `NEBIUS_API_KEY`, `NEBIUS_OFFLINE_DEMO=false`
+- [ ] Restart API; `curl -s https://YOUR-HOST/api/health` → `"mode": "live"`
+- [ ] UI badge: **Live Nemotron** (not unconfigured / offline demo)
+- [ ] **Never** commit `.env` or paste the key in chat
 
-Keep it free and up through **15 Dec 2026 12:00 pm PT**.
+### 3. Hosted demo URL (required — Best Apps track)
 
-Fastest path: Render Blueprint (`render.yaml` in repo root).
+Must stay up through **15 Dec 2026 12:00 pm PT** (judging).
 
-1. https://dashboard.render.com/select-repo?type=blueprint
-2. Connect `nicolehao34/Jupiter`
-3. Add secret `NEBIUS_API_KEY`
-4. Health check is `/api/health`
-5. Paste the `onrender.com` URL into Devpost **and** `docs/hackathon-submission.md` (Demo URL)
+- [ ] Render: https://dashboard.render.com/select-repo?type=blueprint → connect repo → use root `render.yaml`
+- [ ] Set secret **`NEBIUS_API_KEY`** on the service
+- [ ] Health: `/api/health`
+- [ ] Smoke: `#/agent` → Run campaign with live inference
+- [ ] Paste URL into Devpost **and** `docs/hackathon-submission.md` (Demo URL field)
 
-Or: `docs/deployment.md` (Docker, Fly, Cloud Run).
+Alternatives: `docs/deployment.md` (Docker, Fly, Cloud Run).
 
-## 4. YouTube ≤ 3 min, public (required)
+### 4. YouTube demo ≤ 3 min, public (required)
 
-Record from `docs/demo-script.md` **with live inference on screen** (model id, latency, tokens). The README mp4 is an unconfigured UI clip — do **not** submit it as the official video.
+- [ ] Follow **`docs/demo-script.md`** with **live** Nemotron on screen (model id, latency/tokens if shown)
+- [ ] Show: Agent tool loop → GP batch table → run sheet → human types result on Plan → **Continue campaign** → Review / PI brief
+- [ ] Upload **Public** or **Unlisted** (viewable without login); no copyrighted music
+- [ ] **Do not** submit the README mp4 as the official video (that clip is unconfigured playbook only)
 
-Upload to YouTube as **Public** or **Unlisted** (must be viewable without login). No copyrighted music.
+### 5. Devpost entry
 
-## 5. Devpost form (paste from `docs/hackathon-submission.md`)
+Paste from **`docs/hackathon-submission.md`**:
 
-| Field | Paste |
-| --- | --- |
-| Track | Best Apps and Agents |
-| Name | Jupiter |
-| Tagline / elevator | Elevator pitch in the submission draft (≤ 500 characters) |
-| Description | “What we built” + “Where NVIDIA and Nebius are used” |
-| Demo URL | hosted URL from step 3 |
-| Repo | https://github.com/nicolehao34/Jupiter |
-| Video | YouTube URL from step 4 |
-| Built with | Python, FastAPI, scikit-learn, React, Nebius Token Factory, NVIDIA Nemotron |
-| Feedback | “Feedback for organizers” paragraph |
+- [ ] Track: **Best Apps and Agents**
+- [ ] Demo URL (hosted)
+- [ ] Repo: https://github.com/nicolehao34/Jupiter
+- [ ] Video URL (YouTube)
+- [ ] Description + “Where NVIDIA / Nebius are used”
+- [ ] Built with: Python, FastAPI, scikit-learn, React, Nebius Token Factory, NVIDIA Nemotron
+- [ ] Feedback for organizers
+- [ ] Optional: IRL Builders & Brews city
 
-This project did **not** exist before the submission window — skip the pre-existing explanation.
+### 6. Final sanity (rules)
 
-Optional: IRL Builders & Brews city.
+- [ ] README setup works on a clean clone
+- [ ] Video matches hosted behavior
+- [ ] No secrets in git; Materials Project key optional only
+
+---
+
+## What agents already shipped
+
+- Autonomous multi-turn agent (SQLite session, continue after lab results)
+- Agent / Plan / Review / campaign status UI
+- GP + EI ranking, baseline comparison, run sheet, grounded PI brief
+- `render.yaml`, submission drafts, README walkthrough mp4 (playbook mode)
 
 ## What this environment cannot do
 
-No Token Factory key, no GitHub owner toggle, no Render/Fly login, no YouTube account, no Devpost login. The agent, docs, and `render.yaml` are ready for you to finish those five clicks.
+No GitHub visibility toggle, no Render/YouTube/Devpost login, no Nicole’s Token Factory key.
