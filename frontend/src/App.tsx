@@ -1,22 +1,24 @@
 import { useEffect, useState } from "react";
-import { Copilot } from "./components/Copilot";
+import { AgentDock } from "./components/Copilot";
 import { ProjectProvider, useProject } from "./context";
+import { Agent } from "./pages/Agent";
 import { Planner } from "./pages/Planner";
 import { Review } from "./pages/Review";
 import { badgeClass, routeFromHash } from "./util";
 
 function Shell() {
   const { project, status } = useProject();
-  const [route, setRoute] = useState<"plan" | "review">(routeFromHash());
+  const [route, setRoute] = useState<"plan" | "review" | "agent">(routeFromHash());
 
   useEffect(() => {
     const onHash = () => setRoute(routeFromHash());
     window.addEventListener("hashchange", onHash);
-    if (!window.location.hash) window.location.hash = "#/plan";
+    if (!window.location.hash) window.location.hash = "#/agent";
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
   const inference = project?.inference;
+  const isAgent = route === "agent";
 
   return (
     <div className="app">
@@ -24,11 +26,13 @@ function Shell() {
         <div className="brand">
           <h1>Jupiter</h1>
           <p>
-            Plan the next processing runs, then review the same campaign. Ranking is a Gaussian
-            process; the copilot only explains stored numbers via NVIDIA Nemotron on Nebius Token
-            Factory.
+            Autonomous campaign agent. NVIDIA Nemotron on Nebius Token Factory calls tools; a
+            Gaussian process ranks the next processing runs. It never invents lab results.
           </p>
           <nav className="tabs">
+            <a className={route === "agent" ? "tab active" : "tab"} href="#/agent">
+              Agent
+            </a>
             <a className={route === "plan" ? "tab active" : "tab"} href="#/plan">
               Plan
             </a>
@@ -54,14 +58,16 @@ function Shell() {
       <div className="disclaimer">
         Demonstration scenario: fixed NMC811 cathode ({project?.sample_metadata.composition}). The
         bundled table is a <strong>synthetic demonstration dataset</strong> — not real battery
-        physics. Plan writes the campaign; Review and Copilot only read it.
+        physics. The agent runs tools; you still type furnace measurements on Plan.
       </div>
 
       {status.kind !== "idle" && <div className={`status ${status.kind}`}>{status.text}</div>}
 
-      <div className="workspace">
-        <main className="workspace-main">{route === "review" ? <Review /> : <Planner />}</main>
-        <Copilot />
+      <div className={isAgent ? "workspace agent-layout" : "workspace"}>
+        <main className="workspace-main">
+          {route === "review" ? <Review /> : route === "agent" ? <Agent /> : <Planner />}
+        </main>
+        {!isAgent && <AgentDock />}
       </div>
     </div>
   );

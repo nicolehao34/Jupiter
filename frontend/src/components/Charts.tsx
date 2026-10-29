@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { CampaignReview, PlotData, RecommendResponse } from "../types";
+import type { BaselineComparison, CampaignReview, PlotData, RecommendResponse } from "../types";
 import { formatNum } from "../util";
 
 export function Scatter({ plot }: { plot: PlotData | null }) {
@@ -172,6 +172,36 @@ export function BudgetBar({ used, total }: { used: number; total: number }) {
       <p className="meta">
         {used} of {total || "—"} experiments used ({formatNum(pct, 0)}%)
       </p>
+    </div>
+  );
+}
+
+export function BaselineCompare({ comparison }: { comparison?: BaselineComparison | null }) {
+  if (!comparison) return null;
+  if (!comparison.applicable) {
+    return <p className="hint">{comparison.note}</p>;
+  }
+  return (
+    <div className="baseline">
+      <p className="meta">
+        Why not random? Same-size space-filling draw from the leftover candidate pool, scored on
+        this surrogate&apos;s expected improvement.
+      </p>
+      <div className="compare">
+        <article>
+          <p className="meta">This batch · Σ EI</p>
+          <p className="stat">{formatNum(comparison.proposed_sum_ei, 4)}</p>
+        </article>
+        <article>
+          <p className="meta">Space-filling · Σ EI</p>
+          <p className="stat">{formatNum(comparison.baseline_sum_ei, 4)}</p>
+        </article>
+        <article>
+          <p className="meta">Surrogate lift</p>
+          <p className="stat">{formatNum(comparison.ei_lift, 4)}</p>
+        </article>
+      </div>
+      <p className="hint">{comparison.note}</p>
     </div>
   );
 }

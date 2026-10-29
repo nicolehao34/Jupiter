@@ -171,6 +171,33 @@ def ask_campaign(question: str, facts: dict[str, Any], project_id: str | None = 
     return {"answer": parsed.summary, "bullets": parsed.bullets, "inference": meta}
 
 
+def campaign_brief(facts: dict[str, Any], project_id: str | None = None) -> dict[str, Any]:
+    user = {
+        "task": (
+            "Write a four-bullet PI update for this campaign using ONLY campaign_facts. "
+            "Restate best observed, remaining budget, latest strategy, and surrogate EI lift "
+            "if latest_baseline_comparison.applicable is true. "
+            "If a number is missing, say it is unavailable. "
+            "Do not invent mechanisms, citations, lab savings, or predictions. "
+            "If data_origin is synthetic_demonstration, say the table is synthetic."
+        ),
+        "campaign_facts": facts,
+        "schema": {
+            "summary": "one-sentence headline restating stored facts",
+            "bullets": ["best so far", "budget remaining", "latest batch / EI lift", "next bench action from run_sheet"],
+        },
+    }
+    raw, meta = complete("campaign_brief", user, project_id=project_id)
+    parsed = _parse_model(raw, meta)
+    if parsed is None:
+        return {
+            "headline": meta.error or "No brief available.",
+            "bullets": [],
+            "inference": meta,
+        }
+    return {"headline": parsed.summary, "bullets": parsed.bullets, "inference": meta}
+
+
 def summarize_change(payload: dict[str, Any], project_id: str | None = None) -> tuple[str, InferenceMeta]:
     user = {
         "task": (
@@ -217,6 +244,55 @@ def complete(purpose: str, user_payload: dict[str, Any], project_id: str | None 
             {"role": "user", "content": json.dumps(user_payload)},
         ],
     }
+    data, meta = _post_chat(body, purpose=purpose, project_id=project_id)
+    if meta.mode != "live" or not data:
+        return "", meta
+    try:
+        return _message_content(data), meta
+    except ValueError as exc:
+        meta.mode = "failed"
+        meta.error = str(exc)
+        return "", meta
+
+
+def complete_with_tools(
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    project_id: str | None = None,
+) -> tuple[dict[str, Any], InferenceMeta]:
+    """Live Token Factory function calling. Docs: function-calling page on Token Factory."""
+    settings = get_settings()
+    if settings.inference_mode != "live":
+        meta = InferenceMeta(
+            mode=settings.inference_mode,
+            model=settings.nebius_model if settings.inference_mode == "unconfigured" else None,
+            error=(
+                None
+                if settings.inference_mode == "offline_demo"
+                else "NEBIUS_API_KEY is not set. Use the labeled playbook, not a fake live tool loop."
+            ),
+            note="Not a live Token Factory tool-calling response.",
+        )
+        _log(project_id, "campaign_agent", meta)
+        return {}, meta
+    body = {
+        "model": settings.nebius_model,
+        "temperature": 0.2,
+        "max_tokens": 1200,
+        "messages": messages,
+        "tools": tools,
+        "tool_choice": "auto",
+    }
+    data, meta = _post_chat(body, purpose="campaign_agent", project_id=project_id)
+    if meta.mode != "live" or not data:
+        return {}, meta
+    choices = data.get("choices") or []
+    message = (choices[0].get("message") or {}) if choices else {}
+    return message, meta
+
+
+def _post_chat(body: dict[str, Any], *, purpose: str, project_id: str | None) -> tuple[dict[str, Any], InferenceMeta]:
+    settings = get_settings()
     url = settings.nebius_base_url.rstrip("/") + "/chat/completions"
     headers = {
         "Authorization": f"Bearer {settings.nebius_api_key}",
@@ -242,9 +318,8 @@ def complete(purpose: str, user_payload: dict[str, Any], project_id: str | None 
                     error=last_error,
                 )
                 _log(project_id, purpose, meta)
-                return "", meta
+                return {}, meta
             data = response.json()
-            content = _message_content(data)
             usage = data.get("usage") or {}
             meta = InferenceMeta(
                 mode="live",
@@ -257,7 +332,7 @@ def complete(purpose: str, user_payload: dict[str, Any], project_id: str | None 
                 note="Live NVIDIA Nemotron response via Nebius Token Factory.",
             )
             _log(project_id, purpose, meta)
-            return content, meta
+            return data, meta
         except httpx.TimeoutException:
             last_error = f"Token Factory request timed out after {settings.nebius_timeout_seconds}s."
         except httpx.HTTPError as exc:
@@ -271,7 +346,7 @@ def complete(purpose: str, user_payload: dict[str, Any], project_id: str | None 
         error=last_error,
     )
     _log(project_id, purpose, meta)
-    return "", meta
+    return {}, meta
 
 
 def _offline_text(purpose: str, user_payload: dict[str, Any]) -> str:
@@ -304,6 +379,28 @@ def _offline_text(purpose: str, user_payload: dict[str, Any]) -> str:
                 "bullets": [i.get("message", "") for i in issues[:6]],
             }
         )
+    if purpose == "campaign_brief":
+        facts = user_payload.get("campaign_facts") or {}
+        budget = facts.get("budget") or {}
+        baseline = facts.get("latest_baseline_comparison") or {}
+        lift = baseline.get("ei_lift") if baseline.get("applicable") else "unavailable"
+        sheet = facts.get("run_sheet") or {}
+        n_runs = len(sheet.get("runs") or [])
+        return json.dumps(
+            {
+                "summary": (
+                    "OFFLINE DEMO: PI brief from stored facts only "
+                    f"(n_observed={facts.get('n_observed')}, remaining={budget.get('remaining')}, "
+                    f"EI lift={lift}). Not a live Nemotron call."
+                ),
+                "bullets": [
+                    f"Best observed in facts: {facts.get('best_observed')}",
+                    f"Budget remaining: {budget.get('remaining')} of {budget.get('total')}",
+                    f"Latest strategy: {facts.get('latest_strategy')}; surrogate EI lift: {lift}",
+                    f"Next bench runs on the sheet: {n_runs}. {facts.get('demo_disclaimer')}",
+                ],
+            }
+        )
     if purpose == "campaign_ask":
         facts = user_payload.get("campaign_facts") or {}
         question = user_payload.get("question", "")
@@ -317,6 +414,7 @@ def _offline_text(purpose: str, user_payload: dict[str, Any]) -> str:
                 "bullets": [
                     f"Best observed in facts: {facts.get('best_observed')}",
                     f"Latest strategy: {facts.get('latest_strategy')}",
+                    f"Surrogate EI lift: {(facts.get('latest_baseline_comparison') or {}).get('ei_lift')}",
                 ],
             }
         )

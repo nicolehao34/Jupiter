@@ -1,19 +1,25 @@
 import { useEffect, useState } from "react";
-import { BudgetBar, ParityChart } from "../components/Charts";
+import { BaselineCompare, BudgetBar, ParityChart } from "../components/Charts";
 import { api } from "../api";
 import { useProject } from "../context";
-import type { CampaignReview } from "../types";
+import type { CampaignBrief, CampaignReview } from "../types";
 import { formatNum } from "../util";
 
 export function Review() {
   const { project, wrap } = useProject();
   const [review, setReview] = useState<CampaignReview | null>(null);
+  const [brief, setBrief] = useState<CampaignBrief | null>(null);
 
   useEffect(() => {
     if (!project) return;
     void wrap("Loading campaign review…", async () => {
       const next = await api.review(project.id);
       setReview(next);
+      try {
+        setBrief(await api.brief(project.id));
+      } catch {
+        setBrief(null);
+      }
       return next;
     });
   }, [project, wrap]);
@@ -26,6 +32,45 @@ export function Review() {
 
   return (
     <div className="review">
+      {review.audience && (
+        <section className="card impact">
+          <h2>Who this is for</h2>
+          <p>
+            <strong>Audience.</strong> {review.audience.who}
+          </p>
+          <p>
+            <strong>Job.</strong> {review.audience.job}
+          </p>
+          <p>
+            <strong>Intended benefit.</strong> {review.audience.intended_benefit}
+          </p>
+          <p className="hint">{review.audience.not_claimed}</p>
+        </section>
+      )}
+
+      {brief && (
+        <section className="card">
+          <h2>PI brief (Nemotron)</h2>
+          <p className="hint">
+            Grounded Token Factory call: restates stored best/budget/EI lift and the next run sheet.
+            It does not invent predictions or lab savings.
+          </p>
+          <p>{brief.headline}</p>
+          <ul className="run-sheet">
+            {brief.bullets.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p className={`meta infer ${brief.inference.mode}`}>
+            {brief.inference.mode}
+            {brief.inference.model ? ` · ${brief.inference.model}` : ""}
+            {brief.inference.latency_ms != null ? ` · ${brief.inference.latency_ms} ms` : ""}
+            {brief.inference.error ? ` · ${brief.inference.error}` : ""}
+            {brief.inference.note ? ` · ${brief.inference.note}` : ""}
+          </p>
+        </section>
+      )}
+
       <section className="card">
         <h2>Campaign review</h2>
         <p className="hint">
@@ -54,6 +99,14 @@ export function Review() {
           </article>
         </div>
         <BudgetBar used={review.budget.used} total={review.budget.total} />
+        {review.batches[0]?.baseline_comparison && (
+          <div style={{ marginTop: 12 }}>
+            <h3 className="meta" style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Latest batch vs space-filling baseline
+            </h3>
+            <BaselineCompare comparison={review.batches[0].baseline_comparison} />
+          </div>
+        )}
         <p className="meta">
           Origin: {origin}. Direction: {review.direction}.{" "}
           {origin === "synthetic_demonstration"
@@ -95,6 +148,30 @@ export function Review() {
         </section>
       </div>
 
+      {review.run_sheet && (
+        <section className="card" style={{ marginTop: 14 }}>
+          <h2>{review.run_sheet.title}</h2>
+          <p className="hint">{review.run_sheet.instructions}</p>
+          <ol className="run-sheet">
+            {review.run_sheet.runs.map((run) => (
+              <li key={run.run}>
+                <span className="mono">
+                  {Object.entries(run.setpoints)
+                    .map(
+                      ([name, value]) =>
+                        `${name}=${formatNum(value, 3)} ${run.setpoint_units[name] || ""}`.trim(),
+                    )
+                    .join(" · ")}
+                </span>
+                <p className="meta">
+                  Measure {run.measure} ({run.unit}). {run.record_back}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
       <section className="card" style={{ marginTop: 14 }}>
         <h2>Batch timeline</h2>
         {!review.batches.length && (
@@ -110,6 +187,7 @@ export function Review() {
                 <th>n at fit</th>
                 <th>Mean μ</th>
                 <th>Mean σ</th>
+                <th>EI lift</th>
                 <th>Tradeoffs</th>
               </tr>
             </thead>
@@ -124,6 +202,11 @@ export function Review() {
                   <td>{batch.n_observed_at_fit ?? "—"}</td>
                   <td className="mono">{formatNum(batch.mean_prediction, 2)}</td>
                   <td className="mono">{formatNum(batch.mean_std, 2)}</td>
+                  <td className="mono">
+                    {batch.baseline_comparison?.applicable
+                      ? formatNum(batch.baseline_comparison.ei_lift, 4)
+                      : "—"}
+                  </td>
                   <td>{batch.tradeoffs.join(", ")}</td>
                 </tr>
               ))}

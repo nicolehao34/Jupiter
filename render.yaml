@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: jupiter
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: NEBIUS_API_KEY
+        sync: false
+      - key: NEBIUS_BASE_URL
+        value: https://api.tokenfactory.nebius.com/v1
+      - key: NEBIUS_MODEL
+        value: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B
+      - key: NEBIUS_OFFLINE_DEMO
+        value: "false"
+      - key: JUPITER_CORS_ORIGINS
+        value: https://jupiter.onrender.com

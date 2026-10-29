@@ -13,10 +13,11 @@ interface Turn {
 const STARTERS = [
   "What is the best observed capacity so far, and from which source?",
   "How much of the experiment budget is left?",
-  "Summarize the latest recommendation batch without inventing numbers.",
+  "What is the surrogate EI lift versus the space-filling baseline?",
+  "What setpoints are on the latest lab run sheet?",
 ];
 
-export function Copilot() {
+export function AskPanel() {
   const { project } = useProject();
   const [question, setQuestion] = useState(STARTERS[0]);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -47,11 +48,11 @@ export function Copilot() {
   }
 
   return (
-    <aside className="copilot card">
-      <h2>Copilot</h2>
+    <section className="card">
+      <h2>Ask about this campaign</h2>
       <p className="hint">
-        Complements the planner: ask about <em>this</em> campaign. Nemotron may only restate stored
-        facts and surrogate outputs. It will not invent predictions or mechanisms.
+        Optional. After the agent has run, Nemotron may only restate stored facts. It still will not
+        invent predictions. Use <strong>Run campaign</strong> above to act.
       </p>
       <div className="starter-row">
         {STARTERS.map((item) => (
@@ -61,9 +62,7 @@ export function Copilot() {
         ))}
       </div>
       <div className="transcript">
-        {turns.length === 0 && (
-          <p className="meta">No questions yet. The planner on the left still owns ranking.</p>
-        )}
+        {turns.length === 0 && <p className="meta">No questions yet.</p>}
         {turns.map((turn, i) => (
           <div key={i} className={`bubble ${turn.role}`}>
             <p>{turn.text}</p>
@@ -78,7 +77,6 @@ export function Copilot() {
                 {turn.inference.model ? ` · ${turn.inference.model}` : ""}
                 {turn.inference.latency_ms != null ? ` · ${turn.inference.latency_ms} ms` : ""}
                 {turn.inference.error ? ` · ${turn.inference.error}` : ""}
-                {turn.inference.note ? ` · ${turn.inference.note}` : ""}
               </p>
             )}
           </div>
@@ -91,10 +89,27 @@ export function Copilot() {
         placeholder="Ask about budget, best so far, or the last batch…"
       />
       <div className="actions">
-        <button disabled={busy || !project} onClick={() => void send(question)}>
-          {busy ? "Asking…" : "Ask Nemotron"}
+        <button className="secondary" disabled={busy || !project} onClick={() => void send(question)}>
+          {busy ? "Asking…" : "Ask"}
         </button>
       </div>
+    </section>
+  );
+}
+
+export function AgentDock() {
+  return (
+    <aside className="copilot card">
+      <h2>Agent</h2>
+      <p className="hint">
+        The campaign agent owns the loop. Plan and Review only inspect the same SQLite campaign.
+      </p>
+      <div className="actions">
+        <a className="tab active" href="#/agent">
+          Open agent
+        </a>
+      </div>
+      <p className="meta">Ranking stays a Gaussian process. The agent cannot record furnace results.</p>
     </aside>
   );
 }

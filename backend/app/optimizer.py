@@ -113,6 +113,14 @@ def recommend(
                 "n_observed": int(len(y_obs)),
                 "min_points_for_gp": MIN_POINTS_FOR_GP,
             },
+            "baseline_comparison": {
+                "applicable": False,
+                "method": "not_applicable_initial_design",
+                "note": (
+                    "No EI-vs-space-filling comparison yet: the dataset is too small to fit a "
+                    "Gaussian process, so this batch is itself a Latin-hypercube initial design."
+                ),
+            },
         }
 
     y_fit = y_obs.copy()
@@ -207,6 +215,68 @@ def recommend(
             "ei_median": float(np.median(ei)),
             "std_median": float(np.median(std_orig)),
         },
+        "baseline_comparison": _baseline_comparison(candidates, ei, selected, batch_n, seed),
+    }
+
+
+def _baseline_comparison(
+    candidates: np.ndarray,
+    ei: np.ndarray,
+    selected: list[int],
+    batch_n: int,
+    seed: int,
+) -> dict[str, Any]:
+    """Score a same-size space-filling draw with the same EI surface.
+
+    Lift is surrogate-only: summed expected improvement of the proposed batch minus
+    that of a diverse Latin-hypercube-style draw from the leftover candidates.
+    It is not a measured lab saving.
+    """
+    chosen = set(selected)
+    remaining = [i for i in range(len(candidates)) if i not in chosen]
+    if len(remaining) < batch_n:
+        return {
+            "applicable": False,
+            "method": "insufficient_leftover_candidates",
+            "note": (
+                "Could not draw a same-size space-filling baseline from leftover candidates. "
+                "Widen bounds or increase the candidate pool."
+            ),
+        }
+    span = np.ptp(candidates, axis=0)
+    span[span == 0] = 1.0
+    rng = np.random.default_rng(seed + 99)
+    leftover = set(remaining)
+    baseline: list[int] = [int(rng.choice(list(leftover)))]
+    leftover.remove(baseline[0])
+    while leftover and len(baseline) < batch_n:
+        sel = np.asarray(baseline)
+
+        def dist_score(i: int) -> float:
+            return float(np.min(np.linalg.norm((candidates[i] - candidates[sel]) / span, axis=1)))
+
+        nxt = int(max(leftover, key=dist_score))
+        baseline.append(nxt)
+        leftover.remove(nxt)
+
+    proposed_ei = [float(ei[i]) for i in selected]
+    baseline_ei = [float(ei[i]) for i in baseline]
+    proposed_sum = float(sum(proposed_ei))
+    baseline_sum = float(sum(baseline_ei))
+    return {
+        "applicable": True,
+        "method": "diverse_spacefilling_from_same_pool",
+        "n": len(selected),
+        "proposed_sum_ei": round(proposed_sum, 6),
+        "baseline_sum_ei": round(baseline_sum, 6),
+        "proposed_mean_ei": round(proposed_sum / len(proposed_ei), 6),
+        "baseline_mean_ei": round(baseline_sum / len(baseline_ei), 6),
+        "ei_lift": round(proposed_sum - baseline_sum, 6),
+        "note": (
+            "Lift is the difference in summed expected improvement on the current Gaussian-process "
+            "surrogate between this batch and a same-size space-filling draw from the same candidate "
+            "pool. It is not a measured lab saving and not a claim about real furnace runs."
+        ),
     }
 
 

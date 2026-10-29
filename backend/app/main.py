@@ -10,8 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .config import get_settings
-from . import nebius, optional_science, store
-from .schemas import AskRequest, GoalRequest, OptimizationConfig, ResultRow, SimulationRequest
+from . import agent, nebius, optional_science, store
+from .schemas import AgentRunRequest, AskRequest, GoalRequest, OptimizationConfig, ResultRow, SimulationRequest
 from .synthetic import sample_metadata
 
 settings = get_settings()
@@ -149,12 +149,55 @@ async def upload_results(project_id: str, file: UploadFile = File(...)) -> dict[
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.get("/api/projects/{project_id}/run-sheet")
+def get_run_sheet(project_id: str, batch_id: str | None = None) -> dict[str, Any]:
+    try:
+        return store.run_sheet(project_id, batch_id=batch_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/projects/{project_id}/run-sheet.csv")
+def get_run_sheet_csv(project_id: str, batch_id: str | None = None) -> Response:
+    try:
+        csv_text = store.run_sheet_csv(project_id, batch_id=batch_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="jupiter-lab-run-sheet.csv"'},
+    )
+
+
 @app.get("/api/projects/{project_id}/review")
 def review(project_id: str) -> dict[str, Any]:
     try:
         return store.review_payload(project_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/projects/{project_id}/agent/run")
+def run_agent(project_id: str, body: AgentRunRequest) -> dict[str, Any]:
+    try:
+        store.project_payload(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return agent.run_campaign_agent(project_id, body.goal_text, max_steps=body.max_steps)
+
+
+@app.get("/api/projects/{project_id}/brief")
+def brief(project_id: str) -> dict[str, Any]:
+    try:
+        facts = store.campaign_facts(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return nebius.campaign_brief(facts, project_id=project_id)
 
 
 @app.post("/api/projects/{project_id}/ask")

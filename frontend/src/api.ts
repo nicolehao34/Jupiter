@@ -1,5 +1,7 @@
 import type {
+  AgentRun,
   AskReply,
+  CampaignBrief,
   CampaignReview,
   OptimizationConfig,
   PlotData,
@@ -66,6 +68,11 @@ export const api = {
     if (!response.ok) throw new Error("Export failed");
     return response.blob();
   },
+  exportRunSheet: async (id: string) => {
+    const response = await fetch(`/api/projects/${id}/run-sheet.csv`);
+    if (!response.ok) throw new Error("Run sheet export failed");
+    return response.blob();
+  },
   addResults: (id: string, rows: { parameters: Record<string, number>; observed: number; experiment_id?: string }[]) =>
     request<ProjectState>(`/api/projects/${id}/results`, {
       method: "POST",
@@ -79,11 +86,18 @@ export const api = {
   },
   plot: (id: string) => request<PlotData>(`/api/projects/${id}/plot`),
   review: (id: string) => request<CampaignReview>(`/api/projects/${id}/review`),
+  brief: (id: string) => request<CampaignBrief>(`/api/projects/${id}/brief`),
   ask: (id: string, question: string) =>
     request<AskReply>(`/api/projects/${id}/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question }),
+    }),
+  runAgent: (id: string, goalText: string) =>
+    request<AgentRun>(`/api/projects/${id}/agent/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal_text: goalText }),
     }),
   simulate: (c_rate: number, temperature_C: number) =>
     request<Record<string, unknown>>("/api/simulate/pybamm", {

@@ -77,6 +77,49 @@ export interface RecommendationRow {
   source: string;
 }
 
+export interface BaselineComparison {
+  applicable: boolean;
+  method: string;
+  n?: number;
+  proposed_sum_ei?: number;
+  baseline_sum_ei?: number;
+  proposed_mean_ei?: number;
+  baseline_mean_ei?: number;
+  ei_lift?: number;
+  note: string;
+}
+
+export interface AudienceCase {
+  who: string;
+  job: string;
+  intended_benefit: string;
+  not_claimed: string;
+}
+
+export interface RunSheet {
+  batch_id: string;
+  title: string;
+  measure: string;
+  unit: string;
+  direction: string;
+  instructions: string;
+  audience?: AudienceCase;
+  runs: {
+    run: number;
+    rank: number;
+    setpoints: Record<string, number>;
+    setpoint_units: Record<string, string>;
+    measure: string;
+    unit: string;
+    predicted_mean: number | null;
+    predicted_std: number | null;
+    acquisition: number | null;
+    tradeoff: string;
+    uncertainty_label?: string;
+    record_back: string;
+  }[];
+}
+
 export interface RecommendResponse {
   batch_id: string;
   strategy: "expected_improvement" | "initial_design";
@@ -91,6 +134,8 @@ export interface RecommendResponse {
   change_summary?: string | null;
   numerical_change?: string | null;
   validation_summary?: string | null;
+  baseline_comparison?: BaselineComparison | null;
+  run_sheet?: RunSheet | null;
 }
 
 export interface Observation {
@@ -140,6 +185,7 @@ export interface CampaignReview {
     mean_prediction: number | null;
     mean_std: number | null;
     tradeoffs: string[];
+    baseline_comparison?: BaselineComparison | null;
   }[];
   parity: {
     parameters: Record<string, number>;
@@ -152,12 +198,37 @@ export interface CampaignReview {
   residual_note: string;
   data_origin?: string | null;
   inference: InferenceStatus;
+  audience?: AudienceCase;
+  run_sheet?: RunSheet | null;
 }
 
 export interface AskReply {
   answer: string;
   bullets: string[];
   inference: InferenceMeta;
+}
+
+export interface CampaignBrief {
+  headline: string;
+  bullets: string[];
+  inference: InferenceMeta;
+}
+
+export interface AgentStep {
+  tool: string | null;
+  arguments: Record<string, unknown>;
+  ok: boolean;
+  error?: string | null;
+  result?: unknown;
+}
+
+export interface AgentRun {
+  controller: "live" | "playbook" | "failed";
+  goal_text: string;
+  inference: InferenceMeta | null;
+  transcript: AgentStep[];
+  final_text: string;
+  disclaimer: string;
 }
 
 export interface PlotData {

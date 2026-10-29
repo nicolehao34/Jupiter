@@ -137,6 +137,11 @@ class AskRequest(BaseModel):
     question: str = Field(min_length=4, max_length=2000)
 
 
+class AgentRunRequest(BaseModel):
+    goal_text: str = Field(min_length=8, max_length=4000)
+    max_steps: int = Field(default=10, ge=1, le=10)
+
+
 class SimulationRequest(BaseModel):
     c_rate: float = Field(default=1.0, gt=0.05, le=5.0)
     temperature_C: float = Field(default=25.0, ge=0.0, le=60.0)
