@@ -35,6 +35,7 @@ def test_playbook_runs_without_api_key():
     assert "save_config" in names
     assert "generate_batch" in names
     assert "get_run_sheet" in names
+    assert "plan_robot_motion" in names
     generate = next(step for step in payload["transcript"] if step["tool"] == "generate_batch")
     rows = generate["result"]["rows"]
     assert rows

@@ -21,6 +21,7 @@ from .schemas import OptimizationConfig
 
 MAX_STEPS = 10
 TOOL_RESULT_CHARS = 4000
+TOOL_RESULT_CHARS_MOTION = 14000
 
 StopReason = Literal[
     "human_checkpoint",
@@ -43,7 +44,8 @@ AGENT_SYSTEM = (
     "You act by calling tools. Ranking is done only by generate_batch (Gaussian process + EI). "
     "Never invent predicted_mean, predicted_std, EI, mechanisms, citations, or lab measurements. "
     "Never claim you ran a furnace or record experiment outcomes. "
-    "After get_run_sheet succeeds, stop and wait for the human to type measured results on Plan. "
+    "After get_run_sheet, call plan_robot_motion to simulate bench arm trajectories, then stop "
+    "and wait for the human to type measured results on Plan. "
     "On continuation turns, inspect_campaign first; if new observations exist since the last "
     "checkpoint, you may generate_batch and get_run_sheet again, then stop. "
     "If no new observations, stop and tell the researcher to record results first. "
@@ -115,6 +117,17 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "plan_robot_motion",
+            "description": (
+                "Simulate RRT-Connect-style bench robot motion for the latest run sheet "
+                "(3-link arm playback, simulation only — not hardware)."
+            ),
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "write_pi_brief",
             "description": "Grounded PI brief from stored facts only (optional; never invent citations).",
             "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
@@ -127,6 +140,7 @@ RUNNING_PLAN_TEMPLATE = [
     {"id": "configure", "label": "Propose and apply config", "tools": ["propose_config", "save_config"]},
     {"id": "rank", "label": "Fit GP and rank batch", "tools": ["generate_batch"]},
     {"id": "handoff", "label": "Furnace run sheet", "tools": ["get_run_sheet"]},
+    {"id": "robot", "label": "Simulated arm motion plan", "tools": ["plan_robot_motion"]},
     {"id": "checkpoint", "label": "Human records measured results", "tools": []},
 ]
 
@@ -269,13 +283,15 @@ def _run_playbook_turn(
                 prior,
                 checkpoint_obs,
             )
-        tool_queue = ["generate_batch", "get_run_sheet"]
+        tool_queue = ["generate_batch", "get_run_sheet", "plan_robot_motion"]
     else:
         tool_queue = ["inspect_campaign"]
         snapshot = store.project_payload(project_id)
         if not snapshot.get("dataset"):
             tool_queue.append("load_demo_dataset")
-        tool_queue.extend(["propose_config", "save_config", "generate_batch", "get_run_sheet"])
+        tool_queue.extend(
+            ["propose_config", "save_config", "generate_batch", "get_run_sheet", "plan_robot_motion"]
+        )
 
     for name in tool_queue:
         args: dict[str, Any] = {}
@@ -311,12 +327,13 @@ def _run_playbook_turn(
                 prior,
                 checkpoint_obs,
             )
-        if name == "get_run_sheet" and outcome.get("ok"):
+        if name == "plan_robot_motion" and outcome.get("ok"):
             stop_reason = "human_checkpoint"
             n_obs = len(store.project_payload(project_id).get("observations") or [])
             final_text = (
-                "Run sheet ready. Execute furnaces and type measured capacity on Plan — "
-                "the agent will not invent lab results. Then Continue campaign to re-rank."
+                "Run sheet and simulated arm motion plan are ready. Execute furnaces (or review "
+                "the animation), then type measured capacity on Plan — the agent will not invent "
+                "lab results. Then Continue campaign to re-rank."
             )
             return _build_turn_result(
                 project_id,
@@ -371,7 +388,7 @@ def _run_live_turn(
                     "Run this processing campaign with tools. "
                     f"Researcher goal: {goal_text}. "
                     "Inspect, load demo if empty, propose and save config, generate_batch, "
-                    "get_run_sheet, then stop for human lab work. Do not invent numbers."
+                    "get_run_sheet, plan_robot_motion, then stop for human lab work. Do not invent numbers."
                 ),
             },
         ]
@@ -449,12 +466,12 @@ def _run_live_turn(
                 final_text = f"Stopped at {name}: {outcome.get('error')}"
                 handoff_done = True
                 break
-            if name == "get_run_sheet":
+            if name == "plan_robot_motion":
                 handoff_done = True
                 stop_reason = "human_checkpoint"
                 final_text = (
                     final_text
-                    or "Run sheet emitted. Record measured results on Plan before the next agent turn."
+                    or "Simulated arm motion plan ready. Record measured results on Plan before the next turn."
                 )
                 break
         if handoff_done:
@@ -718,6 +735,14 @@ def _run_sheet(project_id: str, _args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _plan_robot(project_id: str, _args: dict[str, Any]) -> dict[str, Any]:
+    from . import robot_sim
+
+    sheet = store.run_sheet(project_id)
+    plan = robot_sim.plan_motion_for_run_sheet(sheet)
+    return plan
+
+
 def _brief(project_id: str, _args: dict[str, Any]) -> dict[str, Any]:
     facts = store.campaign_facts(project_id)
     return nebius.campaign_brief(facts, project_id=project_id)
@@ -730,24 +755,26 @@ TOOL_HANDLERS: dict[str, Callable[[str, dict[str, Any]], Any]] = {
     "save_config": _save,
     "generate_batch": _generate,
     "get_run_sheet": _run_sheet,
+    "plan_robot_motion": _plan_robot,
     "write_pi_brief": _brief,
 }
 
 
 def _event(name: str, args: dict[str, Any], outcome: dict[str, Any]) -> dict[str, Any]:
     result = outcome.get("result")
+    limit = TOOL_RESULT_CHARS_MOTION if name == "plan_robot_motion" else TOOL_RESULT_CHARS
     return {
         "tool": name,
         "arguments": args,
         "ok": bool(outcome.get("ok")),
         "error": outcome.get("error"),
-        "result": _compact(result) if outcome.get("ok") else None,
+        "result": _compact(result, limit=limit) if outcome.get("ok") else None,
     }
 
 
-def _compact(value: Any) -> Any:
+def _compact(value: Any, limit: int = TOOL_RESULT_CHARS) -> Any:
     text = json.dumps(value, default=str)
-    if len(text) <= TOOL_RESULT_CHARS:
+    if len(text) <= limit:
         return value
     return {"truncated": True, "preview": text[:1200]}
 

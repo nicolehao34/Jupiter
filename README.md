@@ -8,7 +8,7 @@ This repository ships a **seeded synthetic NMC811 cathode-processing table** so 
 
 ## UI walkthrough
 
-Landing **Agent** workspace → Run campaign (tool transcript, ranked batch, furnace sheet) → inspect **Plan** / **Review**. A campaign status strip on every tab shows Token Factory mode, checkpoint/next action, and measured vs predicted vs synthetic vs simulated origins. About 45 seconds. In this recording Nemotron may be **unconfigured**; the badge says so and the agent uses a labeled playbook of the same tools, not a fake live loop. There is no copilot sidebar; asking is optional under the agent.
+Landing **Agent** workspace → **Run campaign** (running plan, tool transcript, **stop reason** at human checkpoint, batch + furnace sheet) → **Plan** / **Review** → **Continue campaign** when ready. The campaign status strip on every tab shows Token Factory mode, checkpoint/next action, and data origins. ~35 seconds in the clip below. Nemotron is **unconfigured** here; the UI labels the **stateful playbook** (persisted session, not a fake live loop). For Devpost, record a separate ≤3 min video with **Live Nemotron** per `docs/demo-script.md`.
 
 [![Autonomous campaign agent walkthrough](docs/media/agent-campaign-demo.jpg)](docs/media/agent-campaign-demo.mp4)
 
