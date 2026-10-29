@@ -695,6 +695,7 @@ def _generate(project_id: str, _args: dict[str, Any]) -> dict[str, Any]:
                 "predicted_std": row.get("predicted_std"),
                 "acquisition": row.get("acquisition"),
                 "tradeoff": row.get("tradeoff"),
+                "source": row.get("source", "surrogate_prediction"),
             }
         )
     return {
@@ -702,6 +703,7 @@ def _generate(project_id: str, _args: dict[str, Any]) -> dict[str, Any]:
         "strategy": batch.get("strategy"),
         "n_observed": batch.get("n_observed"),
         "baseline_comparison": batch.get("baseline_comparison"),
+        "warnings": batch.get("warnings") or [],
         "rows": rows,
         "note": "These numbers come from the Gaussian-process surrogate, not from Nemotron.",
     }

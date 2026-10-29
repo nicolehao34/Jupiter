@@ -25,7 +25,10 @@ export function Scatter({ plot }: { plot: PlotData | null }) {
   const mapX = (i: number, n: number) => left + ((w - 60) * (i - 1)) / Math.max(n - 1, 1);
   const mapY = (y: number) => 16 + ((h - 36) * (y1 - y)) / (y1 - y0 || 1);
   return (
-    <svg className="chart" viewBox={`0 0 ${w} ${h}`}>
+    <svg className="chart" viewBox={`0 0 ${w} ${h}`} role="img" aria-labelledby="scatter-title">
+      <title id="scatter-title">
+        Index plot of {plot?.target || "target"}: loaded measurements and GP predictions with uncertainty
+      </title>
       <text x="8" y="14" fontSize="10" fill="#5c6b7a">
         {plot?.target || "target"}
       </text>
@@ -147,7 +150,10 @@ export function ParityChart({ review }: { review: CampaignReview | null }) {
   const map = (v: number) => left + ((v - a) / (b - a)) * inner;
   const mapY = (v: number) => top + inner - ((v - a) / (b - a)) * inner;
   return (
-    <svg className="chart parity" viewBox={`0 0 ${w} ${h}`}>
+    <svg className="chart parity" viewBox={`0 0 ${w} ${h}`} role="img" aria-labelledby="parity-title">
+      <title id="parity-title">
+        In-sample predicted versus observed {review?.target || "target"}
+      </title>
       <line x1={map(a)} y1={mapY(a)} x2={map(b)} y2={mapY(b)} stroke="#c9c2b4" />
       {points.map((p, i) => (
         <circle key={i} cx={map(p.observed)} cy={mapY(p.predicted_mean)} r={3.5} fill="#1d4e89" />
@@ -166,7 +172,14 @@ export function BudgetBar({ used, total }: { used: number; total: number }) {
   const pct = total ? Math.min(100, (used / total) * 100) : 0;
   return (
     <div>
-      <div className="budget-track">
+      <div
+        className="budget-track"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={total || 100}
+        aria-valuenow={used}
+        aria-label="Experiment budget used"
+      >
         <div className="budget-fill" style={{ width: `${pct}%` }} />
       </div>
       <p className="meta">

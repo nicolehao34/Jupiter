@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CampaignStatus } from "./components/CampaignStatus";
 import { AgentDock } from "./components/Copilot";
 import { ProjectProvider, useProject } from "./context";
 import { Agent } from "./pages/Agent";
@@ -22,6 +23,9 @@ function Shell() {
 
   return (
     <div className="app">
+      <a className="skip-link" href="#main">
+        Skip to campaign workspace
+      </a>
       <header className="top">
         <div className="brand">
           <h1>Jupiter</h1>
@@ -29,14 +33,26 @@ function Shell() {
             Autonomous campaign agent. NVIDIA Nemotron on Nebius Token Factory calls tools; a
             Gaussian process ranks the next processing runs. It never invents lab results.
           </p>
-          <nav className="tabs">
-            <a className={route === "agent" ? "tab active" : "tab"} href="#/agent">
+          <nav className="tabs" aria-label="Campaign workspace">
+            <a
+              className={route === "agent" ? "tab active" : "tab"}
+              href="#/agent"
+              aria-current={route === "agent" ? "page" : undefined}
+            >
               Agent
             </a>
-            <a className={route === "plan" ? "tab active" : "tab"} href="#/plan">
+            <a
+              className={route === "plan" ? "tab active" : "tab"}
+              href="#/plan"
+              aria-current={route === "plan" ? "page" : undefined}
+            >
               Plan
             </a>
-            <a className={route === "review" ? "tab active" : "tab"} href="#/review">
+            <a
+              className={route === "review" ? "tab active" : "tab"}
+              href="#/review"
+              aria-current={route === "review" ? "page" : undefined}
+            >
               Review
             </a>
           </nav>
@@ -61,10 +77,16 @@ function Shell() {
         physics. The agent runs tools; you still type furnace measurements on Plan.
       </div>
 
-      {status.kind !== "idle" && <div className={`status ${status.kind}`}>{status.text}</div>}
+      <CampaignStatus busy={status.kind === "loading"} />
+
+      {status.kind !== "idle" && (
+        <div className={`status ${status.kind}`} role="status" aria-live="polite">
+          {status.text}
+        </div>
+      )}
 
       <div className={isAgent ? "workspace agent-layout" : "workspace"}>
-        <main className="workspace-main">
+        <main id="main" className="workspace-main" tabIndex={-1}>
           {route === "review" ? <Review /> : route === "agent" ? <Agent /> : <Planner />}
         </main>
         {!isAgent && <AgentDock />}
